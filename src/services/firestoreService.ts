@@ -290,3 +290,34 @@ export async function seedInitialFirestoreData(force = false) {
     console.warn('Auto-seeding skipped or constrained by permissions:', err);
   }
 }
+
+// Church Settings (Logo, Branding, etc.)
+const SETTINGS_COL = 'settings';
+const CHURCH_INFO_DOC = 'church_info';
+
+export interface ChurchSettingsData {
+  logoUrl?: string;
+  updatedAt?: any;
+}
+
+export function subscribeChurchSettings(callback: (settings: ChurchSettingsData) => void) {
+  const docRef = doc(db, SETTINGS_COL, CHURCH_INFO_DOC);
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      callback(snap.data() as ChurchSettingsData);
+    } else {
+      callback({});
+    }
+  }, (err) => {
+    console.warn('Could not listen to church settings in Firestore:', err);
+    callback({});
+  });
+}
+
+export async function updateChurchSettings(settings: ChurchSettingsData) {
+  const docRef = doc(db, SETTINGS_COL, CHURCH_INFO_DOC);
+  return await setDoc(docRef, {
+    ...settings,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}

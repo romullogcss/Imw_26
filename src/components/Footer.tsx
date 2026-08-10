@@ -1,6 +1,7 @@
 import React from 'react';
 import { PageId } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
+import { Logo } from './Logo';
 import { 
   Cross, MapPin, Phone, Mail, Clock, Heart, 
   Instagram, Facebook, Youtube, Music, MessageCircle, ArrowUp, Lock
@@ -26,19 +27,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenPrayerModal })
           
           {/* Column 1: Brand & Identity */}
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#102bde] text-white font-black">
-                <Cross className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-sans text-lg font-extrabold text-white tracking-tight uppercase">
-                  IMW Cosmópolis
-                </h3>
-                <p className="text-xs text-[#102bde] font-bold tracking-wider uppercase">
-                  Igreja Metodista Wesleyana
-                </p>
-              </div>
-            </div>
+            <Logo variant="dark" onClick={() => onNavigate('home')} />
 
             <p className="text-slate-400 text-sm leading-relaxed">
               &quot;{CHURCH_INFO.motto}&quot;. Uma comunidade de fé acolhedora em Cosmópolis/SP dedicada a pregar o Evangelho de Jesus Cristo com renovação espiritual, amor e serviço social.

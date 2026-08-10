@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageId } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
+import { Logo } from './Logo';
 import { 
   Menu, X, Cross, Phone, MapPin, Calendar, Heart, 
   ChevronRight, Sparkles, MessageCircle, Play
@@ -85,20 +86,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
           {/* Logo */}
-          <button
-            onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 text-left group cursor-pointer"
-          >
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#102bde] text-white font-black text-xl tracking-tighter shadow-md shadow-[#102bde]/25 group-hover:scale-105 transition-transform">
-              <Cross className="w-6 h-6 stroke-[2.5]" />
-            </div>
-
-            <div>
-              <div className="font-sans font-black text-lg sm:text-xl tracking-tight text-slate-900 uppercase group-hover:text-[#102bde] transition-colors leading-none">
-                IMW <span className="text-[#102bde]">COSMÓPOLIS</span>
-              </div>
-            </div>
-          </button>
+          <Logo onClick={() => handleNavClick('home')} />
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1 lg:gap-1.5">

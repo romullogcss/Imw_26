@@ -32,11 +32,12 @@ import {
   validateImageFile 
 } from '../services/storageService';
 import { ScheduleItem, ChurchEvent, Sermon, Ministry } from '../types';
+import { Logo } from '../components/Logo';
 import { 
   Lock, Mail, LogOut, Plus, Edit2, Trash2, Calendar, Clock, 
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
-  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle
+  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw
 } from 'lucide-react';
 
 interface AdminProps {
