@@ -1,0 +1,6 @@
+{
+  "name": "Igreja Metodista Wesleyana de Cosmópolis",
+  "description": "Site institucional da Igreja Metodista Wesleyana de Cosmópolis com história, ministérios, programação de cultos, pregações em áudio e vídeo e informações de contato.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

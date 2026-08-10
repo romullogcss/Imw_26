@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "schedules": {
+      "title": "Schedules",
+      "description": "Church worship schedule items",
+      "type": "object",
+      "properties": {
+        "day": { "type": "string" },
+        "time": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "category": { "type": "string" },
+        "isHighlight": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["day", "time", "title"]
+    },
+    "events": {
+      "title": "Special Events",
+      "description": "Church special conferences, camps, and events",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "location": { "type": "string" },
+        "badge": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "date", "time"]
+    },
+    "sermons": {
+      "title": "Sermons & Messages",
+      "description": "Church pregações, youtube and spotify links",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "preacher": { "type": "string" },
+        "date": { "type": "string" },
+        "scripture": { "type": "string" },
+        "duration": { "type": "string" },
+        "category": { "type": "string" },
+        "youtubeUrl": { "type": "string" },
+        "spotifyUrl": { "type": "string" },
+        "thumbnailUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "preacher", "date"]
+    }
+  }
+}
