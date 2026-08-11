@@ -149,7 +149,7 @@ export const ARTICLES_OF_FAITH: ArticleOfFaith[] = [
 export const CHURCH_INFO = {
   name: 'Igreja Metodista Wesleyana de Cosmópolis',
   shortName: 'IMW Cosmópolis',
-  logoUrl: 'assets/imw-logo.svg',
+  logoUrl: '/imw-logo.svg',
   motto: 'Uma igreja viva para um Deus vivo',
   verseText: 'Porque onde estiverem dois ou três reunidos em meu nome, ali estou eu no meio deles.',
   verseReference: 'Mateus 18:20',

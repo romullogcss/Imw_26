@@ -67,7 +67,15 @@ export const Logo: React.FC<LogoProps> = ({
   onClick,
   customLogoUrl,
 }) => {
-  const activeLogoUrl = customLogoUrl !== undefined ? customLogoUrl : (CHURCH_INFO.logoUrl || '');
+  const rawUrl = customLogoUrl !== undefined && customLogoUrl !== '' 
+    ? customLogoUrl 
+    : (CHURCH_INFO.logoUrl || '/imw-logo.svg');
+  
+  // Normalize legacy or relative paths to public absolute path /imw-logo.svg
+  const activeLogoUrl = (rawUrl === 'assets/imw-logo.svg' || rawUrl === 'public/imw-logo.svg' || rawUrl === './imw-logo.svg' || rawUrl === 'imw-logo.svg')
+    ? '/imw-logo.svg'
+    : rawUrl;
+
   const [imageError, setImageError] = useState(false);
 
   const textSizes = {

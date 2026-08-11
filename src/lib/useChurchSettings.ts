@@ -8,9 +8,14 @@ export function useChurchSettings() {
   const [logoUrl, setLogoUrlState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored !== null) return stored;
+      if (stored !== null && stored !== '') {
+        if (stored === 'assets/imw-logo.svg' || stored === 'public/imw-logo.svg' || stored === './imw-logo.svg') {
+          return '/imw-logo.svg';
+        }
+        return stored;
+      }
     }
-    return CHURCH_INFO.logoUrl || '';
+    return CHURCH_INFO.logoUrl || '/imw-logo.svg';
   });
 
   useEffect(() => {

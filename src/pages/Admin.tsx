@@ -802,11 +802,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 relative z-10">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#102bde]/20 border border-[#102bde]/40 text-[#102bde] mb-2 shadow-inner">
-              <Lock className="w-7 h-7 text-[#102bde]" />
+            <div className="flex justify-center mb-3">
+              <Logo variant="dark" size="lg" />
             </div>
-            <h1 className="font-sans font-black text-2xl uppercase tracking-tight text-white">
-              PAINEL ADMINISTRATIVO
+            <h1 className="font-sans font-black text-xl uppercase tracking-tight text-white flex items-center justify-center gap-2">
+              <Lock className="w-5 h-5 text-[#102bde]" />
+              <span>PAINEL ADMINISTRATIVO</span>
             </h1>
             <p className="text-xs text-slate-400 font-medium">
               Acesso restrito para líderes e secretários autorizados da IMW Cosmópolis.
