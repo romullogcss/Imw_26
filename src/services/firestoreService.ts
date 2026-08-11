@@ -14,6 +14,12 @@ import {
 import { db } from '../lib/firebase';
 import { ScheduleItem, ChurchEvent, Sermon, Ministry } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
+import { 
+  extractYoutubeId, 
+  getYoutubeEmbedUrl, 
+  getYoutubeWatchUrl, 
+  getYoutubeThumbnailUrl 
+} from '../utils/youtube';
 
 // Collections names
 const SCHEDULES_COL = 'schedules';
@@ -21,16 +27,7 @@ const EVENTS_COL = 'events';
 const SERMONS_COL = 'sermons';
 const MINISTRIES_COL = 'ministries';
 
-// Helper for Youtube video ID extraction
-export function extractYoutubeId(input: string): string {
-  if (!input) return 'dQw4w9WgXcQ';
-  const trimmed = input.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
-  }
-  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-  return match && match[1] ? match[1] : trimmed;
-}
+export { extractYoutubeId };
 
 // Subscribe to Schedules
 export function subscribeSchedules(callback: (items: ScheduleItem[]) => void) {
@@ -118,10 +115,22 @@ export function subscribeSermons(callback: (items: Sermon[]) => void) {
       callback([]);
       return;
     }
-    const items: Sermon[] = snapshot.docs.map((d) => ({
-      id: d.id,
-      ...d.data()
-    })) as Sermon[];
+    const items: Sermon[] = snapshot.docs.map((d) => {
+      const data = d.data();
+      const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
+      const embedUrl = data.embedUrl || (ytId ? getYoutubeEmbedUrl(ytId) : '');
+      const watchUrl = data.youtubeUrl || (ytId ? getYoutubeWatchUrl(ytId) : '');
+      const thumbnail = data.thumbnail || (ytId ? getYoutubeThumbnailUrl(ytId) : '');
+
+      return {
+        id: d.id,
+        ...data,
+        youtubeId: ytId || data.youtubeId || '',
+        youtubeUrl: watchUrl || data.youtubeUrl || '',
+        embedUrl: embedUrl,
+        thumbnail: thumbnail,
+      } as Sermon;
+    });
     
     callback(items);
   }, (err) => {
@@ -132,14 +141,16 @@ export function subscribeSermons(callback: (items: Sermon[]) => void) {
 
 // Add Sermon
 export async function addSermon(data: Omit<Sermon, 'id'>) {
-  const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '');
-  const thumbnail = data.thumbnail || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
-  const youtubeUrl = data.youtubeUrl || `https://www.youtube.com/watch?v=${ytId}`;
+  const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
+  const embedUrl = getYoutubeEmbedUrl(ytId);
+  const watchUrl = data.youtubeUrl || getYoutubeWatchUrl(ytId);
+  const thumbnail = data.thumbnail?.trim() || getYoutubeThumbnailUrl(ytId);
 
   return await addDoc(collection(db, SERMONS_COL), {
     ...data,
     youtubeId: ytId,
-    youtubeUrl,
+    youtubeUrl: watchUrl,
+    embedUrl,
     thumbnail,
     createdAt: serverTimestamp()
   });
@@ -150,11 +161,12 @@ export async function updateSermon(id: string, data: Partial<Sermon>) {
   const docRef = doc(db, SERMONS_COL, id);
   let updatedData = { ...data };
   if (data.youtubeUrl || data.youtubeId) {
-    const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '');
+    const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
     updatedData.youtubeId = ytId;
-    updatedData.youtubeUrl = data.youtubeUrl || `https://www.youtube.com/watch?v=${ytId}`;
+    updatedData.embedUrl = getYoutubeEmbedUrl(ytId);
+    updatedData.youtubeUrl = data.youtubeUrl || getYoutubeWatchUrl(ytId);
     if (!data.thumbnail) {
-      updatedData.thumbnail = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      updatedData.thumbnail = getYoutubeThumbnailUrl(ytId);
     }
   }
   return await updateDoc(docRef, updatedData);
@@ -209,31 +221,68 @@ export async function deleteMinistry(id: string) {
   return await deleteDoc(docRef);
 }
 
+// Delete all schedules from Firestore
+export async function clearAllSchedules() {
+  const schedSnap = await getDocs(collection(db, SCHEDULES_COL));
+  for (const docItem of schedSnap.docs) {
+    try {
+      await deleteDoc(doc(db, SCHEDULES_COL, docItem.id));
+    } catch (e) {
+      console.warn('Could not delete schedule doc:', e);
+    }
+  }
+}
+
+// Delete all sermons from Firestore
+export async function clearAllSermons() {
+  const sermonSnap = await getDocs(collection(db, SERMONS_COL));
+  for (const docItem of sermonSnap.docs) {
+    try {
+      await deleteDoc(doc(db, SERMONS_COL, docItem.id));
+    } catch (e) {
+      console.warn('Could not delete sermon doc:', e);
+    }
+  }
+}
+
+// Delete all events from Firestore
+export async function clearAllEvents() {
+  const eventSnap = await getDocs(collection(db, EVENTS_COL));
+  for (const docItem of eventSnap.docs) {
+    try {
+      await deleteDoc(doc(db, EVENTS_COL, docItem.id));
+    } catch (e) {
+      console.warn('Could not delete event doc:', e);
+    }
+  }
+}
+
 // Seed initial data to Firestore if empty or forced sync
 export async function seedInitialFirestoreData(force = false) {
   try {
-    // Check schedules
+    // Check and clear schedules if requested or if seeding runs
     const schedSnap = await getDocs(collection(db, SCHEDULES_COL));
-    if (schedSnap.empty || force) {
-      const existingTitles = new Set(schedSnap.docs.map(d => d.data().title));
-      for (const item of WEEKLY_SCHEDULE) {
-        if (!existingTitles.has(item.title)) {
-          const { id, ...rest } = item;
-          try {
-            await addDoc(collection(db, SCHEDULES_COL), {
-              ...rest,
-              createdAt: serverTimestamp()
-            });
-          } catch (e) {
-            console.warn('Could not seed schedule item:', e);
-          }
+    if (!schedSnap.empty && WEEKLY_SCHEDULE.length === 0) {
+      for (const docItem of schedSnap.docs) {
+        try {
+          await deleteDoc(doc(db, SCHEDULES_COL, docItem.id));
+        } catch (e) {
+          console.warn('Could not clear schedule doc:', e);
         }
       }
     }
 
-    // Check events
+    // Check and clear events if requested or if seeding runs
     const eventSnap = await getDocs(collection(db, EVENTS_COL));
-    if (eventSnap.empty || force) {
+    if (!eventSnap.empty && SPECIAL_EVENTS.length === 0) {
+      for (const docItem of eventSnap.docs) {
+        try {
+          await deleteDoc(doc(db, EVENTS_COL, docItem.id));
+        } catch (e) {
+          console.warn('Could not clear event doc:', e);
+        }
+      }
+    } else if (eventSnap.empty && SPECIAL_EVENTS.length > 0) {
       const existingTitles = new Set(eventSnap.docs.map(d => d.data().title));
       for (const event of SPECIAL_EVENTS) {
         if (!existingTitles.has(event.title)) {
@@ -250,21 +299,14 @@ export async function seedInitialFirestoreData(force = false) {
       }
     }
 
-    // Check sermons
+    // Check and clear sermons if requested or if seeding runs
     const sermonSnap = await getDocs(collection(db, SERMONS_COL));
-    if (sermonSnap.empty || force) {
-      const existingTitles = new Set(sermonSnap.docs.map(d => d.data().title));
-      for (const sermon of SERMONS_YOUTUBE) {
-        if (!existingTitles.has(sermon.title)) {
-          const { id, ...rest } = sermon;
-          try {
-            await addDoc(collection(db, SERMONS_COL), {
-              ...rest,
-              createdAt: serverTimestamp()
-            });
-          } catch (e) {
-            console.warn('Could not seed sermon item:', e);
-          }
+    if (!sermonSnap.empty && SERMONS_YOUTUBE.length === 0) {
+      for (const docItem of sermonSnap.docs) {
+        try {
+          await deleteDoc(doc(db, SERMONS_COL, docItem.id));
+        } catch (e) {
+          console.warn('Could not clear sermon doc:', e);
         }
       }
     }
@@ -297,6 +339,8 @@ const CHURCH_INFO_DOC = 'church_info';
 
 export interface ChurchSettingsData {
   logoUrl?: string;
+  spotifyUrl?: string;
+  spotifyEmbedUrl?: string;
   updatedAt?: any;
 }
 

@@ -18,19 +18,11 @@ export const SchedulePage: React.FC = () => {
 
   useEffect(() => {
     const unsubSched = subscribeSchedules((items) => {
-      if (items && items.length > 0) {
-        setScheduleList(items);
-      } else {
-        setScheduleList(WEEKLY_SCHEDULE);
-      }
+      setScheduleList(items || []);
     });
 
     const unsubEvts = subscribeEvents((items) => {
-      if (items && items.length > 0) {
-        setEventsList(items);
-      } else {
-        setEventsList(SPECIAL_EVENTS);
-      }
+      setEventsList(items || []);
     });
 
     return () => {
@@ -114,51 +106,65 @@ export const SchedulePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs sm:text-sm font-sans">
-                  {filteredSchedule.map((item) => (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-slate-50 transition-colors ${
-                        item.isHighlight ? 'bg-[#102bde]/5' : ''
-                      }`}
-                    >
-                      <td className="py-4 px-6 whitespace-nowrap">
-                        <div className="font-black text-slate-900 text-base uppercase">
-                          {item.day}
-                        </div>
-                        <div className="inline-flex items-center gap-1 text-[#102bde] font-bold text-xs mt-0.5">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>{item.time}h</span>
-                        </div>
-                      </td>
-
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <span className="font-black text-slate-900 text-base uppercase">
-                            {item.title}
-                          </span>
-                          {item.isHighlight && (
-                            <span className="px-2 py-0.5 rounded-md bg-[#102bde] text-white font-black text-[10px] uppercase">
-                              PRINCIPAL
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[11px] text-slate-500 font-bold uppercase mt-0.5 block">
-                          Categoria: {item.category}
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-6 text-slate-600 max-w-xs leading-relaxed text-xs font-medium">
-                        {item.description}
-                      </td>
-
-                      <td className="py-4 px-6 whitespace-nowrap text-slate-700 font-bold uppercase">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#102bde] shrink-0" />
-                          <span>{item.location}</span>
-                        </div>
+                  {filteredSchedule.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-12 px-6 text-center text-slate-500 bg-slate-50/50">
+                        <Calendar className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                        <p className="font-extrabold text-slate-700 uppercase text-xs tracking-wider">
+                          Nenhum culto ou reunião cadastrada no momento.
+                        </p>
+                        <p className="text-slate-500 text-xs mt-1">
+                          Acesse o painel administrativo para adicionar novos horários na programação da igreja.
+                        </p>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredSchedule.map((item) => (
+                      <tr 
+                        key={item.id} 
+                        className={`hover:bg-slate-50 transition-colors ${
+                          item.isHighlight ? 'bg-[#102bde]/5' : ''
+                        }`}
+                      >
+                        <td className="py-4 px-6 whitespace-nowrap">
+                          <div className="font-black text-slate-900 text-base uppercase">
+                            {item.day}
+                          </div>
+                          <div className="inline-flex items-center gap-1 text-[#102bde] font-bold text-xs mt-0.5">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{item.time}h</span>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-slate-900 text-base uppercase">
+                              {item.title}
+                            </span>
+                            {item.isHighlight && (
+                              <span className="px-2 py-0.5 rounded-md bg-[#102bde] text-white font-black text-[10px] uppercase">
+                                PRINCIPAL
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-500 font-bold uppercase mt-0.5 block">
+                            Categoria: {item.category}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-6 text-slate-600 max-w-xs leading-relaxed text-xs font-medium">
+                          {item.description}
+                        </td>
+
+                        <td className="py-4 px-6 whitespace-nowrap text-slate-700 font-bold uppercase">
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-[#102bde] shrink-0" />
+                            <span>{item.location}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -179,88 +185,100 @@ export const SchedulePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {eventsList.map((event) => (
-              <div
-                key={event.id}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  <div className="relative h-60 overflow-hidden bg-slate-100">
-                    <img
-                      src={event.imageUrl}
-                      alt={event.title}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" />
-                    
-                    <div className="absolute top-4 left-4">
-                      <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-sans font-black text-xs uppercase tracking-wider shadow-sm">
-                        {event.badge}
-                      </span>
-                    </div>
-
-                    <div className="absolute bottom-4 left-4 right-4 text-white">
-                      <div className="flex items-center gap-2 text-[#102bde] font-sans text-xs font-extrabold uppercase mb-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>{event.date}</span>
+          {eventsList.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center shadow-sm max-w-xl mx-auto">
+              <Sparkles className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="font-black text-slate-800 uppercase text-sm tracking-wider">
+                Nenhum evento especial agendado no momento.
+              </p>
+              <p className="text-slate-500 text-xs mt-1">
+                Fique atento! Em breve divulgaremos novas conferências, retiros e encontros especiais.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {eventsList.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between group"
+                >
+                  <div>
+                    <div className="relative h-60 overflow-hidden bg-slate-100">
+                      <img
+                        src={event.imageUrl}
+                        alt={event.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" />
+                      
+                      <div className="absolute top-4 left-4">
+                        <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-sans font-black text-xs uppercase tracking-wider shadow-sm">
+                          {event.badge}
+                        </span>
                       </div>
-                      <h3 className="font-sans font-black text-2xl uppercase text-white">
-                        {event.title}
-                      </h3>
+
+                      <div className="absolute bottom-4 left-4 right-4 text-white">
+                        <div className="flex items-center gap-2 text-[#102bde] font-sans text-xs font-extrabold uppercase mb-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>{event.date}</span>
+                        </div>
+                        <h3 className="font-sans font-black text-2xl uppercase text-white">
+                          {event.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="p-6 space-y-3 font-sans">
+                      <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-[#102bde]" />
+                          {event.time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-[#102bde]" />
+                          {event.location}
+                        </span>
+                      </div>
+
+                      <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
+                        {event.description}
+                      </p>
                     </div>
                   </div>
 
-                  <div className="p-6 space-y-3 font-sans">
-                    <div className="flex items-center gap-4 text-xs font-bold text-slate-500 uppercase">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-[#102bde]" />
-                        {event.time}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-[#102bde]" />
-                        {event.location}
-                      </span>
-                    </div>
+                  <div className="p-6 pt-0 flex items-center justify-between gap-4 font-sans">
+                    <button
+                      onClick={() => handleAddToCalendar(event.id, event.title)}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider border border-slate-200 transition-colors cursor-pointer"
+                    >
+                      {addedCalendarId === event.id ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                          <span className="text-emerald-600 font-black">SALVO!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 text-[#102bde]" />
+                          <span>AGENDAR</span>
+                        </>
+                      )}
+                    </button>
 
-                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
-                      {event.description}
-                    </p>
+                    <a
+                      href={`https://wa.me/5519998765432?text=Olá,%20gostaria%20de%20me%20inscrever%20no%20evento:%20${encodeURIComponent(event.title)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
+                    >
+                      <span>INSCREVER-SE</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </a>
                   </div>
                 </div>
-
-                <div className="p-6 pt-0 flex items-center justify-between gap-4 font-sans">
-                  <button
-                    onClick={() => handleAddToCalendar(event.id, event.title)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider border border-slate-200 transition-colors cursor-pointer"
-                  >
-                    {addedCalendarId === event.id ? (
-                      <>
-                        <CheckCircle className="w-4 h-4 text-emerald-600" />
-                        <span className="text-emerald-600 font-black">SALVO!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4 text-[#102bde]" />
-                        <span>AGENDAR</span>
-                      </>
-                    )}
-                  </button>
-
-                  <a
-                    href={`https://wa.me/5519998765432?text=Olá,%20gostaria%20de%20me%20inscrever%20no%20evento:%20${encodeURIComponent(event.title)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer shadow-sm"
-                  >
-                    <span>INSCREVER-SE</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
       </div>

@@ -1,6 +1,7 @@
-import React from 'react';
-import { PageId } from '../types';
-import { CHURCH_INFO, WEEKLY_SCHEDULE, MINISTRIES_DATA, SERMONS_YOUTUBE } from '../data/churchData';
+import React, { useState, useEffect } from 'react';
+import { PageId, Sermon, ScheduleItem } from '../types';
+import { CHURCH_INFO } from '../data/churchData';
+import { subscribeSermons, subscribeSchedules } from '../services/firestoreService';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
   Clock, Users, Sparkles, Cross, ArrowRight, Video, Music,
@@ -14,8 +15,24 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => {
-  const latestSermon = SERMONS_YOUTUBE[0];
-  const highlightedServices = WEEKLY_SCHEDULE.filter(s => s.isHighlight || s.day === 'Domingo');
+  const [sermonsList, setSermonsList] = useState<Sermon[]>([]);
+  const [scheduleList, setScheduleList] = useState<ScheduleItem[]>([]);
+
+  useEffect(() => {
+    const unsubSermons = subscribeSermons((items) => {
+      setSermonsList(items || []);
+    });
+    const unsubSched = subscribeSchedules((items) => {
+      setScheduleList(items || []);
+    });
+    return () => {
+      unsubSermons();
+      unsubSched();
+    };
+  }, []);
+
+  const latestSermon = sermonsList[0];
+  const highlightedServices = scheduleList.filter(s => s.isHighlight || s.day === 'Domingo');
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
@@ -139,68 +156,89 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             </p>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-lg grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            
-            <div className="lg:col-span-7 space-y-5">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#102bde]/10 text-[#102bde] text-[11px] font-sans font-extrabold uppercase tracking-wider border border-[#102bde]/20">
-                <Video className="w-3.5 h-3.5" />
-                <span>DESTAQUE DE DOMINGO</span>
+          {latestSermon ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-10 shadow-lg grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              
+              <div className="lg:col-span-7 space-y-5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-[#102bde]/10 text-[#102bde] text-[11px] font-sans font-extrabold uppercase tracking-wider border border-[#102bde]/20">
+                  <Video className="w-3.5 h-3.5" />
+                  <span>DESTAQUE ONLINE</span>
+                </div>
+
+                <h3 className="font-sans font-black text-2xl sm:text-4xl text-slate-900 uppercase leading-tight">
+                  {latestSermon.title}
+                </h3>
+
+                <div className="flex flex-wrap items-center gap-4 text-xs font-sans text-slate-500">
+                  <span className="text-[#102bde] font-bold uppercase">Pregador: {latestSermon.preacher}</span>
+                  <span>•</span>
+                  <span>Data: {latestSermon.date}</span>
+                  <span>•</span>
+                  <span className="text-slate-700 font-semibold">Base: {latestSermon.scripture}</span>
+                </div>
+
+                <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                  {latestSermon.summary || 'Uma mensagem inspiradora sobre a Palavra de Deus para edificar sua fé e transformar sua vida cotidiana.'}
+                </p>
+
+                <div className="pt-3 flex flex-wrap items-center gap-4">
+                  <button
+                    onClick={() => onNavigate('sermons')}
+                    className="px-6 py-3.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-white" />
+                    <span>ASSISTIR AGORA</span>
+                  </button>
+
+                  <button
+                    onClick={() => onNavigate('sermons')}
+                    className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 text-xs font-sans font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Music className="w-4 h-4 text-emerald-400" />
+                    <span>OUVIR NO SPOTIFY</span>
+                  </button>
+                </div>
               </div>
 
-              <h3 className="font-sans font-black text-2xl sm:text-4xl text-slate-900 uppercase leading-tight">
-                {latestSermon.title}
-              </h3>
-
-              <div className="flex flex-wrap items-center gap-4 text-xs font-sans text-slate-500">
-                <span className="text-[#102bde] font-bold uppercase">Pregador: {latestSermon.preacher}</span>
-                <span>•</span>
-                <span>Data: {latestSermon.date}</span>
-                <span>•</span>
-                <span className="text-slate-700 font-semibold">Base: {latestSermon.scripture}</span>
-              </div>
-
-              <p className="text-slate-600 text-sm leading-relaxed font-medium">
-                {latestSermon.summary || 'Uma mensagem inspiradora sobre a Palavra de Deus para edificar sua fé e transformar sua vida cotidiana.'}
-              </p>
-
-              <div className="pt-3 flex flex-wrap items-center gap-4">
-                <button
+              <div className="lg:col-span-5">
+                <div 
                   onClick={() => onNavigate('sermons')}
-                  className="px-6 py-3.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2"
+                  className="relative rounded-xl overflow-hidden border border-slate-200 group cursor-pointer shadow-md"
                 >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>ASSISTIR AGORA</span>
-                </button>
-
-                <button
-                  onClick={() => onNavigate('sermons')}
-                  className="px-6 py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 text-xs font-sans font-extrabold uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2"
-                >
-                  <Music className="w-4 h-4 text-emerald-400" />
-                  <span>OUVIR NO SPOTIFY</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="lg:col-span-5">
-              <div 
-                onClick={() => onNavigate('sermons')}
-                className="relative rounded-xl overflow-hidden border border-slate-200 group cursor-pointer shadow-md"
-              >
-                <img
-                  src={latestSermon.thumbnail}
-                  alt={latestSermon.title}
-                  className="w-full h-64 sm:h-80 object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-slate-900/40 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center">
-                  <div className="w-20 h-20 rounded-full bg-[#102bde] text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-                    <Play className="w-10 h-10 fill-white ml-1" />
+                  <img
+                    src={latestSermon.thumbnail || 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=800'}
+                    alt={latestSermon.title}
+                    className="w-full h-64 sm:h-80 object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-slate-900/40 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-[#102bde] text-white flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
+                      <Play className="w-10 h-10 fill-white ml-1" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-          </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center shadow-md max-w-2xl mx-auto space-y-4">
+              <Video className="w-12 h-12 text-[#102bde] mx-auto" />
+              <h3 className="font-sans font-black text-2xl text-slate-900 uppercase">
+                MENSAGENS & PREGAÇÕES DA IMW
+              </h3>
+              <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
+                Ouça nossos episódios no Podcast do Spotify e confira a página de mensagens para ouvir e assistir às palavras ministradas.
+              </p>
+              <div className="pt-2 flex justify-center gap-3">
+                <button
+                  onClick={() => onNavigate('sermons')}
+                  className="px-6 py-3 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-sm flex items-center gap-2"
+                >
+                  <Music className="w-4 h-4" />
+                  <span>ACESSAR MENSAGENS & PODCAST</span>
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </section>
@@ -334,41 +372,59 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {highlightedServices.map((service) => (
-              <div
-                key={service.id}
-                className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-[#102bde] transition-all shadow-sm hover:shadow-md group flex flex-col justify-between"
+          {highlightedServices.length === 0 ? (
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-xl mx-auto shadow-sm">
+              <Calendar className="w-10 h-10 text-[#102bde] mx-auto mb-3" />
+              <h3 className="font-sans font-black text-lg text-slate-900 uppercase">
+                AGENDA SEMANAL DA IMW
+              </h3>
+              <p className="text-slate-600 text-xs mt-2 leading-relaxed">
+                Acompanhe a página de agenda para ver horários de cultos, reuniões e eventos.
+              </p>
+              <button
+                onClick={() => onNavigate('schedule')}
+                className="mt-4 px-6 py-3 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-sm"
               >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="px-3 py-1 rounded-md bg-[#102bde] text-white text-xs font-sans font-black uppercase tracking-wider">
-                      {service.day} • {service.time}
-                    </span>
-                    <span className="text-xs font-sans text-slate-500 uppercase font-bold">
-                      {service.location}
-                    </span>
+                VER AGENDA COMPLETA
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {highlightedServices.map((service) => (
+                <div
+                  key={service.id}
+                  className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-[#102bde] transition-all shadow-sm hover:shadow-md group flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="px-3 py-1 rounded-md bg-[#102bde] text-white text-xs font-sans font-black uppercase tracking-wider">
+                        {service.day} • {service.time}
+                      </span>
+                      <span className="text-xs font-sans text-slate-500 uppercase font-bold">
+                        {service.location}
+                      </span>
+                    </div>
+
+                    <h3 className="font-sans font-black text-2xl text-slate-900 uppercase mb-2 group-hover:text-[#102bde] transition-colors">
+                      {service.title}
+                    </h3>
+
+                    <p className="text-slate-600 text-xs leading-relaxed mb-6 font-medium">
+                      {service.description}
+                    </p>
                   </div>
 
-                  <h3 className="font-sans font-black text-2xl text-slate-900 uppercase mb-2 group-hover:text-[#102bde] transition-colors">
-                    {service.title}
-                  </h3>
-
-                  <p className="text-slate-600 text-xs leading-relaxed mb-6 font-medium">
-                    {service.description}
-                  </p>
+                  <button
+                    onClick={() => onNavigate('schedule')}
+                    className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-sans font-extrabold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Clock className="w-4 h-4 text-[#102bde]" />
+                    <span>VER DETALHES</span>
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => onNavigate('schedule')}
-                  className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-sans font-extrabold text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Clock className="w-4 h-4 text-[#102bde]" />
-                  <span>VER DETALHES</span>
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
         </div>
       </section>
@@ -381,7 +437,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             <div className="lg:col-span-5 relative">
               <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xl">
                 <img
-                  src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=800"
+                  src="/foto-pastor-gessivaldo-gomes-reboucas.png"
                   alt="Pastores Titulares IMW Cosmópolis"
                   className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
                 />

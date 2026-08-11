@@ -23,21 +23,37 @@ import {
   addMinistry,
   updateMinistry,
   deleteMinistry,
-  seedInitialFirestoreData,
-  extractYoutubeId
+  subscribeChurchSettings,
+  updateChurchSettings,
+  ChurchSettingsData,
+  seedInitialFirestoreData
 } from '../services/firestoreService';
 import { 
   uploadImageToStorage, 
   deleteImageFromStorageUrl, 
   validateImageFile 
 } from '../services/storageService';
+import { 
+  extractYoutubeId, 
+  isValidYoutubeUrl, 
+  getYoutubeEmbedUrl, 
+  getYoutubeWatchUrl, 
+  getYoutubeThumbnailUrl 
+} from '../utils/youtube';
+import { 
+  isValidSpotifyUrl, 
+  getSpotifyEmbedUrl 
+} from '../utils/spotify';
+import { SPOTIFY_PLAYLIST } from '../data/churchData';
 import { ScheduleItem, ChurchEvent, Sermon, Ministry } from '../types';
 import { Logo } from '../components/Logo';
+import { YouTubePlayer } from '../components/YouTubePlayer';
+import { SpotifyPlayer } from '../components/SpotifyPlayer';
 import { 
   Lock, Mail, LogOut, Plus, Edit2, Trash2, Calendar, Clock, 
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
-  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw
+  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music
 } from 'lucide-react';
 
 interface AdminProps {
@@ -99,6 +115,11 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [seedingLoading, setSeedingLoading] = useState(false);
 
+  // Church Settings (Spotify link, branding)
+  const [churchSettings, setChurchSettings] = useState<ChurchSettingsData>({});
+  const [spotifyUrlInput, setSpotifyUrlInput] = useState('');
+  const [savingSpotify, setSavingSpotify] = useState(false);
+
   // Track auth status
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -116,6 +137,14 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     const unsubEvts = subscribeEvents((data) => setEvents(data));
     const unsubSermons = subscribeSermons((data) => setSermons(data));
     const unsubMin = subscribeMinistries((data) => setMinistries(data));
+    const unsubSettings = subscribeChurchSettings((settings) => {
+      setChurchSettings(settings);
+      if (settings.spotifyUrl) {
+        setSpotifyUrlInput(settings.spotifyUrl);
+      } else {
+        setSpotifyUrlInput(SPOTIFY_PLAYLIST.spotifyUrl);
+      }
+    });
 
     // Automatically check and import initial site data to Firestore if collections are empty
     seedInitialFirestoreData(false).catch((err) => {
@@ -127,8 +156,39 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       unsubEvts();
       unsubSermons();
       unsubMin();
+      unsubSettings();
     };
   }, [user]);
+
+  // Handle Save Spotify Settings
+  const handleSaveSpotifySettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = spotifyUrlInput.trim();
+    if (!trimmed) {
+      setStatusMsg({ type: 'error', text: 'Por favor, informe uma URL do Spotify.' });
+      return;
+    }
+
+    if (!isValidSpotifyUrl(trimmed)) {
+      setStatusMsg({ type: 'error', text: 'Link do Spotify inválido. Cole uma URL válida de show, episódio, playlist ou música do Spotify.' });
+      return;
+    }
+
+    setSavingSpotify(true);
+    try {
+      const embedUrl = getSpotifyEmbedUrl(trimmed);
+      await updateChurchSettings({
+        spotifyUrl: trimmed,
+        spotifyEmbedUrl: embedUrl
+      });
+      setStatusMsg({ type: 'success', text: 'Link do Spotify e Podcast atualizado com sucesso!' });
+    } catch (err) {
+      console.error('Error updating Spotify settings:', err);
+      setStatusMsg({ type: 'error', text: 'Erro ao salvar link do Spotify. Tente novamente.' });
+    } finally {
+      setSavingSpotify(false);
+    }
+  };
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -674,13 +734,23 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const handleSaveSermon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sermonForm.title || !sermonForm.preacher) return;
+
+    if (!isValidYoutubeUrl(sermonForm.youtubeUrl)) {
+      setStatusMsg({ type: 'error', text: 'Link do YouTube inválido. Cole a URL completa do vídeo.' });
+      return;
+    }
+
     try {
-      const ytId = extractYoutubeId(sermonForm.youtubeUrl);
-      const thumbnail = sermonForm.thumbnail || `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      const ytId = extractYoutubeId(sermonForm.youtubeUrl) || '';
+      const embedUrl = getYoutubeEmbedUrl(ytId);
+      const watchUrl = getYoutubeWatchUrl(sermonForm.youtubeUrl);
+      const thumbnail = sermonForm.thumbnail.trim() || getYoutubeThumbnailUrl(ytId);
+
       const fullSermon = {
         ...sermonForm,
         youtubeId: ytId,
-        youtubeUrl: sermonForm.youtubeUrl.includes('http') ? sermonForm.youtubeUrl : `https://www.youtube.com/watch?v=${ytId}`,
+        youtubeUrl: watchUrl,
+        embedUrl,
         thumbnail
       };
 
@@ -1290,6 +1360,80 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </button>
               </div>
 
+              {/* CARD: CONFIGURAÇÃO DO SPOTIFY / PODCAST */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <Music className="w-5 h-5 shrink-0" />
+                    <h3 className="font-extrabold text-base uppercase tracking-tight text-slate-900">
+                      Integração Spotify & Podcast
+                    </h3>
+                  </div>
+                  <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full uppercase border border-emerald-200">
+                    Página Mensagens
+                  </span>
+                </div>
+
+                <form onSubmit={handleSaveSpotifySettings} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1.5">
+                      Link do Spotify (Podcast / Show / Playlist / Episódio / Música)
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={spotifyUrlInput}
+                        onChange={(e) => setSpotifyUrlInput(e.target.value)}
+                        placeholder="https://open.spotify.com/show/..."
+                        className={`flex-1 px-3.5 py-2.5 rounded-xl border font-medium text-slate-800 text-sm focus:outline-none ${
+                          spotifyUrlInput.trim() && !isValidSpotifyUrl(spotifyUrlInput)
+                            ? 'border-red-500 bg-red-50/50 focus:border-red-600'
+                            : 'border-slate-300 focus:border-emerald-600'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingSpotify}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50 shrink-0"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{savingSpotify ? 'Salvando...' : 'Salvar Link'}</span>
+                      </button>
+                    </div>
+
+                    {/* Validation Message */}
+                    {spotifyUrlInput.trim() && (
+                      <div className="mt-2">
+                        {isValidSpotifyUrl(spotifyUrlInput) ? (
+                          <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Link do Spotify reconhecido com sucesso! Formato de embed gerado.</span>
+                          </p>
+                        ) : (
+                          <p className="text-xs font-bold text-red-600 flex items-center gap-1.5">
+                            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                            <span>Link do Spotify inválido. Cole a URL completa (ex: https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA).</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Live Preview in CMS */}
+                  {spotifyUrlInput.trim() && isValidSpotifyUrl(spotifyUrlInput) && (
+                    <div className="p-4 bg-white rounded-xl border border-slate-200 space-y-2">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                        Pré-visualização do Player do Spotify no CMS:
+                      </span>
+                      <SpotifyPlayer
+                        spotifyUrl={spotifyUrlInput}
+                        title="Pré-visualização do Spotify no CMS"
+                      />
+                    </div>
+                  )}
+                </form>
+              </div>
+
               {sermons.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 space-y-3">
                   <Youtube className="w-10 h-10 text-slate-300 mx-auto" />
@@ -1881,7 +2025,71 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   value={sermonForm.youtubeUrl}
                   onChange={(e) => setSermonForm({ ...sermonForm, youtubeUrl: e.target.value })}
                   placeholder="https://www.youtube.com/watch?v=..."
+                  className={`w-full px-3 py-2.5 rounded-xl border font-medium text-slate-800 focus:outline-none ${
+                    sermonForm.youtubeUrl.trim() && !isValidYoutubeUrl(sermonForm.youtubeUrl)
+                      ? 'border-red-500 focus:border-red-600 bg-red-50/50'
+                      : 'border-slate-300 focus:border-[#102bde]'
+                  }`}
+                />
+                {sermonForm.youtubeUrl.trim() && !isValidYoutubeUrl(sermonForm.youtubeUrl) && (
+                  <p className="text-xs font-bold text-red-600 mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Link do YouTube inválido. Cole a URL completa do vídeo.</span>
+                  </p>
+                )}
+              </div>
+
+              {/* Realtime Video Embed Preview */}
+              {sermonForm.youtubeUrl.trim() && isValidYoutubeUrl(sermonForm.youtubeUrl) && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Pré-visualização do Player:</span>
+                  <YouTubePlayer
+                    urlOrId={sermonForm.youtubeUrl}
+                    title={sermonForm.title || 'Pré-visualização do Vídeo'}
+                    thumbnail={sermonForm.thumbnail}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Link da Capa da Pregação (Imagem / Thumbnail)</label>
+                <input
+                  type="text"
+                  value={sermonForm.thumbnail}
+                  onChange={(e) => setSermonForm({ ...sermonForm, thumbnail: e.target.value })}
+                  placeholder="https://exemplo.com/minha-capa.jpg ou assets/imagem.jpg"
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Cole o link direto de uma imagem na internet. Se deixar em branco, a capa será gerada automaticamente a partir do vídeo do YouTube.
+                </p>
+              </div>
+
+              {/* Cover Image Preview */}
+              {(sermonForm.thumbnail.trim() || (sermonForm.youtubeUrl.trim() && isValidYoutubeUrl(sermonForm.youtubeUrl))) && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Pré-visualização da Capa:</span>
+                  <div className="relative aspect-video max-w-xs overflow-hidden rounded-lg border border-slate-200 bg-slate-200 shadow-xs">
+                    <img
+                      src={sermonForm.thumbnail.trim() || getYoutubeThumbnailUrl(sermonForm.youtubeUrl)}
+                      alt="Pré-visualização da capa"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=600';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Resumo / Esboço da Mensagem (Opcional)</label>
+                <textarea
+                  rows={3}
+                  value={sermonForm.summary}
+                  onChange={(e) => setSermonForm({ ...sermonForm, summary: e.target.value })}
+                  placeholder="Breve resumo dos pontos principais ou versículos citados na pregação..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
                 />
               </div>
 

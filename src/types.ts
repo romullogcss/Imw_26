@@ -77,6 +77,7 @@ export interface Sermon {
   date: string;
   youtubeId: string;
   youtubeUrl: string;
+  embedUrl?: string;
   duration: string;
   scripture: string;
   category: string;
