@@ -115,46 +115,59 @@ function mapSettings(row: any): ChurchSettingsData {
 // SCHEDULES
 // -------------------------------------------------------------
 
-export function subscribeSchedules(callback: (items: ScheduleItem[]) => void) {
-  let isSubscribed = true;
+const scheduleListeners = new Set<(items: ScheduleItem[]) => void>();
+let schedulesChannel: any = null;
 
-  const fetchItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('*')
-        .order('id', { ascending: true });
+async function fetchAndNotifySchedules() {
+  try {
+    const { data, error } = await supabase
+      .from('schedules')
+      .select('*')
+      .order('id', { ascending: true });
 
-      if (error) {
-        console.warn('[Supabase] Aviso ao buscar schedules:', error.message);
-        if (isSubscribed) callback(WEEKLY_SCHEDULE);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const items = data.map(mapSchedule);
-        if (isSubscribed) callback(items);
-      } else {
-        if (isSubscribed) callback([]);
-      }
-    } catch (err) {
-      console.warn('[Supabase] Exceção ao buscar schedules:', err);
-      if (isSubscribed) callback(WEEKLY_SCHEDULE);
+    let items: ScheduleItem[] = [];
+    if (error) {
+      console.warn('[Supabase] Aviso ao buscar schedules:', error.message);
+      items = WEEKLY_SCHEDULE;
+    } else if (data && data.length > 0) {
+      items = data.map(mapSchedule);
+    } else {
+      items = [];
     }
-  };
 
-  fetchItems();
+    scheduleListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar schedules:', err);
+    scheduleListeners.forEach((cb) => cb(WEEKLY_SCHEDULE));
+  }
+}
 
-  const channel = supabase
-    .channel('public:schedules')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
-      fetchItems();
-    })
-    .subscribe();
+function initSchedulesRealtime() {
+  if (!schedulesChannel) {
+    schedulesChannel = supabase
+      .channel('public:schedules')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
+        fetchAndNotifySchedules();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:schedules conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeSchedules(callback: (items: ScheduleItem[]) => void) {
+  scheduleListeners.add(callback);
+  fetchAndNotifySchedules();
+  initSchedulesRealtime();
 
   return () => {
-    isSubscribed = false;
-    supabase.removeChannel(channel);
+    scheduleListeners.delete(callback);
+    if (scheduleListeners.size === 0 && schedulesChannel) {
+      supabase.removeChannel(schedulesChannel);
+      schedulesChannel = null;
+    }
   };
 }
 
@@ -182,6 +195,8 @@ export async function addSchedule(data: Omit<ScheduleItem, 'id'>) {
     console.error('[Supabase] Erro ao adicionar horário:', error);
     throw new Error(`Erro ao salvar no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySchedules();
   return inserted ? mapSchedule(inserted) : { id: newId, ...data };
 }
 
@@ -200,6 +215,8 @@ export async function updateSchedule(id: string, data: Partial<ScheduleItem>) {
     console.error('[Supabase] Erro ao atualizar horário:', error);
     throw new Error(`Erro ao atualizar no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySchedules();
   return updated;
 }
 
@@ -213,6 +230,8 @@ export async function deleteSchedule(id: string) {
     console.error('[Supabase] Erro ao excluir horário:', error);
     throw new Error(`Erro ao excluir no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySchedules();
   return true;
 }
 
@@ -220,45 +239,58 @@ export async function deleteSchedule(id: string) {
 // EVENTS
 // -------------------------------------------------------------
 
-export function subscribeEvents(callback: (items: ChurchEvent[]) => void) {
-  let isSubscribed = true;
+const eventListeners = new Set<(items: ChurchEvent[]) => void>();
+let eventsChannel: any = null;
 
-  const fetchItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('events')
-        .select('*');
+async function fetchAndNotifyEvents() {
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*');
 
-      if (error) {
-        console.warn('[Supabase] Aviso ao buscar events:', error.message);
-        if (isSubscribed) callback(SPECIAL_EVENTS);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const items = data.map(mapEvent);
-        if (isSubscribed) callback(items);
-      } else {
-        if (isSubscribed) callback([]);
-      }
-    } catch (err) {
-      console.warn('[Supabase] Exceção ao buscar events:', err);
-      if (isSubscribed) callback(SPECIAL_EVENTS);
+    let items: ChurchEvent[] = [];
+    if (error) {
+      console.warn('[Supabase] Aviso ao buscar events:', error.message);
+      items = SPECIAL_EVENTS;
+    } else if (data && data.length > 0) {
+      items = data.map(mapEvent);
+    } else {
+      items = [];
     }
-  };
 
-  fetchItems();
+    eventListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar events:', err);
+    eventListeners.forEach((cb) => cb(SPECIAL_EVENTS));
+  }
+}
 
-  const channel = supabase
-    .channel('public:events')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
-      fetchItems();
-    })
-    .subscribe();
+function initEventsRealtime() {
+  if (!eventsChannel) {
+    eventsChannel = supabase
+      .channel('public:events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
+        fetchAndNotifyEvents();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:events conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeEvents(callback: (items: ChurchEvent[]) => void) {
+  eventListeners.add(callback);
+  fetchAndNotifyEvents();
+  initEventsRealtime();
 
   return () => {
-    isSubscribed = false;
-    supabase.removeChannel(channel);
+    eventListeners.delete(callback);
+    if (eventListeners.size === 0 && eventsChannel) {
+      supabase.removeChannel(eventsChannel);
+      eventsChannel = null;
+    }
   };
 }
 
@@ -287,6 +319,8 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
     console.error('[Supabase] Erro ao adicionar evento:', error);
     throw new Error(`Erro ao salvar evento no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyEvents();
   return inserted ? mapEvent(inserted) : { id: newId, ...data };
 }
 
@@ -306,6 +340,8 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
     console.error('[Supabase] Erro ao atualizar evento:', error);
     throw new Error(`Erro ao atualizar evento no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyEvents();
   return updated;
 }
 
@@ -319,6 +355,8 @@ export async function deleteEvent(id: string) {
     console.error('[Supabase] Erro ao excluir evento:', error);
     throw new Error(`Erro ao excluir evento no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyEvents();
   return true;
 }
 
@@ -326,45 +364,58 @@ export async function deleteEvent(id: string) {
 // SERMONS
 // -------------------------------------------------------------
 
-export function subscribeSermons(callback: (items: Sermon[]) => void) {
-  let isSubscribed = true;
+const sermonListeners = new Set<(items: Sermon[]) => void>();
+let sermonsChannel: any = null;
 
-  const fetchItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('sermons')
-        .select('*');
+async function fetchAndNotifySermons() {
+  try {
+    const { data, error } = await supabase
+      .from('sermons')
+      .select('*');
 
-      if (error) {
-        console.warn('[Supabase] Aviso ao buscar sermons:', error.message);
-        if (isSubscribed) callback(SERMONS_YOUTUBE);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const items = data.map(mapSermon);
-        if (isSubscribed) callback(items);
-      } else {
-        if (isSubscribed) callback([]);
-      }
-    } catch (err) {
-      console.warn('[Supabase] Exceção ao buscar sermons:', err);
-      if (isSubscribed) callback(SERMONS_YOUTUBE);
+    let items: Sermon[] = [];
+    if (error) {
+      console.warn('[Supabase] Aviso ao buscar sermons:', error.message);
+      items = SERMONS_YOUTUBE;
+    } else if (data && data.length > 0) {
+      items = data.map(mapSermon);
+    } else {
+      items = [];
     }
-  };
 
-  fetchItems();
+    sermonListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar sermons:', err);
+    sermonListeners.forEach((cb) => cb(SERMONS_YOUTUBE));
+  }
+}
 
-  const channel = supabase
-    .channel('public:sermons')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sermons' }, () => {
-      fetchItems();
-    })
-    .subscribe();
+function initSermonsRealtime() {
+  if (!sermonsChannel) {
+    sermonsChannel = supabase
+      .channel('public:sermons')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sermons' }, () => {
+        fetchAndNotifySermons();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:sermons conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeSermons(callback: (items: Sermon[]) => void) {
+  sermonListeners.add(callback);
+  fetchAndNotifySermons();
+  initSermonsRealtime();
 
   return () => {
-    isSubscribed = false;
-    supabase.removeChannel(channel);
+    sermonListeners.delete(callback);
+    if (sermonListeners.size === 0 && sermonsChannel) {
+      supabase.removeChannel(sermonsChannel);
+      sermonsChannel = null;
+    }
   };
 }
 
@@ -405,6 +456,8 @@ export async function addSermon(data: Omit<Sermon, 'id'>) {
     console.error('[Supabase] Erro ao adicionar pregação:', error);
     throw new Error(`Erro ao salvar pregação no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySermons();
   return inserted ? mapSermon(inserted) : { id: newId, ...data, youtubeId: ytId, embedUrl, youtubeUrl: watchUrl, thumbnail, imageUrl, imagePath };
 }
 
@@ -434,6 +487,8 @@ export async function updateSermon(id: string, data: Partial<Sermon>) {
     console.error('[Supabase] Erro ao atualizar pregação:', error);
     throw new Error(`Erro ao atualizar pregação no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySermons();
   return updated;
 }
 
@@ -447,6 +502,8 @@ export async function deleteSermon(id: string) {
     console.error('[Supabase] Erro ao excluir pregação:', error);
     throw new Error(`Erro ao excluir pregação no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifySermons();
   return true;
 }
 
@@ -454,45 +511,58 @@ export async function deleteSermon(id: string) {
 // MINISTRIES
 // -------------------------------------------------------------
 
-export function subscribeMinistries(callback: (items: Ministry[]) => void) {
-  let isSubscribed = true;
+const ministryListeners = new Set<(items: Ministry[]) => void>();
+let ministriesChannel: any = null;
 
-  const fetchItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('ministries')
-        .select('*');
+async function fetchAndNotifyMinistries() {
+  try {
+    const { data, error } = await supabase
+      .from('ministries')
+      .select('*');
 
-      if (error) {
-        console.warn('[Supabase] Aviso ao buscar ministries:', error.message);
-        if (isSubscribed) callback(MINISTRIES_DATA);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const items = data.map(mapMinistry);
-        if (isSubscribed) callback(items);
-      } else {
-        if (isSubscribed) callback([]);
-      }
-    } catch (err) {
-      console.warn('[Supabase] Exceção ao buscar ministries:', err);
-      if (isSubscribed) callback(MINISTRIES_DATA);
+    let items: Ministry[] = [];
+    if (error) {
+      console.warn('[Supabase] Aviso ao buscar ministries:', error.message);
+      items = MINISTRIES_DATA;
+    } else if (data && data.length > 0) {
+      items = data.map(mapMinistry);
+    } else {
+      items = [];
     }
-  };
 
-  fetchItems();
+    ministryListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar ministries:', err);
+    ministryListeners.forEach((cb) => cb(MINISTRIES_DATA));
+  }
+}
 
-  const channel = supabase
-    .channel('public:ministries')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'ministries' }, () => {
-      fetchItems();
-    })
-    .subscribe();
+function initMinistriesRealtime() {
+  if (!ministriesChannel) {
+    ministriesChannel = supabase
+      .channel('public:ministries')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ministries' }, () => {
+        fetchAndNotifyMinistries();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:ministries conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeMinistries(callback: (items: Ministry[]) => void) {
+  ministryListeners.add(callback);
+  fetchAndNotifyMinistries();
+  initMinistriesRealtime();
 
   return () => {
-    isSubscribed = false;
-    supabase.removeChannel(channel);
+    ministryListeners.delete(callback);
+    if (ministryListeners.size === 0 && ministriesChannel) {
+      supabase.removeChannel(ministriesChannel);
+      ministriesChannel = null;
+    }
   };
 }
 
@@ -528,6 +598,8 @@ export async function addMinistry(data: Omit<Ministry, 'id'> & { id?: string }) 
     console.error('[Supabase] Erro ao adicionar/atualizar ministério:', error);
     throw new Error(`Erro ao salvar ministério no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyMinistries();
   return ministryId;
 }
 
@@ -555,6 +627,8 @@ export async function updateMinistry(id: string, data: Partial<Ministry>) {
     console.error('[Supabase] Erro ao atualizar ministério:', error);
     throw new Error(`Erro ao atualizar ministério no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyMinistries();
   return updated;
 }
 
@@ -568,6 +642,8 @@ export async function deleteMinistry(id: string) {
     console.error('[Supabase] Erro ao excluir ministério:', error);
     throw new Error(`Erro ao excluir ministério no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyMinistries();
   return true;
 }
 
@@ -578,16 +654,19 @@ export async function deleteMinistry(id: string) {
 export async function clearAllSchedules() {
   const { error } = await supabase.from('schedules').delete().neq('id', '0');
   if (error) console.warn('[Supabase] Erro ao limpar schedules:', error);
+  fetchAndNotifySchedules();
 }
 
 export async function clearAllEvents() {
   const { error } = await supabase.from('events').delete().neq('id', '0');
   if (error) console.warn('[Supabase] Erro ao limpar events:', error);
+  fetchAndNotifyEvents();
 }
 
 export async function clearAllSermons() {
   const { error } = await supabase.from('sermons').delete().neq('id', '0');
   if (error) console.warn('[Supabase] Erro ao limpar sermons:', error);
+  fetchAndNotifySermons();
 }
 
 export async function seedInitialFirestoreData(force = false) {
@@ -628,6 +707,12 @@ export async function seedInitialFirestoreData(force = false) {
       }
     }
 
+    fetchAndNotifySchedules();
+    fetchAndNotifyEvents();
+    fetchAndNotifySermons();
+    fetchAndNotifyMinistries();
+    fetchAndNotifyChurchSettings();
+
     console.log('[Supabase Seed] Sincronização concluída com sucesso.');
   } catch (err) {
     console.warn('[Supabase Seed] Aviso/Exceção durante seed:', err);
@@ -638,46 +723,57 @@ export async function seedInitialFirestoreData(force = false) {
 // SETTINGS / BRANDING
 // -------------------------------------------------------------
 
-export function subscribeChurchSettings(callback: (settings: ChurchSettingsData) => void) {
-  let isSubscribed = true;
+const settingsListeners = new Set<(settings: ChurchSettingsData) => void>();
+let settingsChannel: any = null;
 
-  const fetchSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'church_info')
-        .maybeSingle();
+async function fetchAndNotifyChurchSettings() {
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 'church_info')
+      .maybeSingle();
 
-      if (error) {
-        console.warn('[Supabase] Aviso ao buscar settings:', error.message);
-        if (isSubscribed) callback({});
-        return;
-      }
-
-      if (data) {
-        if (isSubscribed) callback(mapSettings(data));
-      } else {
-        if (isSubscribed) callback({});
-      }
-    } catch (err) {
-      console.warn('[Supabase] Exceção ao buscar settings:', err);
-      if (isSubscribed) callback({});
+    let settings: ChurchSettingsData = {};
+    if (error) {
+      console.warn('[Supabase] Aviso ao buscar settings:', error.message);
+    } else if (data) {
+      settings = mapSettings(data);
     }
-  };
 
-  fetchSettings();
+    settingsListeners.forEach((cb) => cb(settings));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar settings:', err);
+    settingsListeners.forEach((cb) => cb({}));
+  }
+}
 
-  const channel = supabase
-    .channel('public:settings')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
-      fetchSettings();
-    })
-    .subscribe();
+function initChurchSettingsRealtime() {
+  if (!settingsChannel) {
+    settingsChannel = supabase
+      .channel('public:settings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        fetchAndNotifyChurchSettings();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:settings conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeChurchSettings(callback: (settings: ChurchSettingsData) => void) {
+  settingsListeners.add(callback);
+  fetchAndNotifyChurchSettings();
+  initChurchSettingsRealtime();
 
   return () => {
-    isSubscribed = false;
-    supabase.removeChannel(channel);
+    settingsListeners.delete(callback);
+    if (settingsListeners.size === 0 && settingsChannel) {
+      supabase.removeChannel(settingsChannel);
+      settingsChannel = null;
+    }
   };
 }
 
@@ -699,5 +795,7 @@ export async function updateChurchSettings(settings: ChurchSettingsData) {
     console.error('[Supabase] Erro ao atualizar configurações:', error);
     throw new Error(`Erro ao salvar configurações no Supabase: ${error.message}`);
   }
+
+  fetchAndNotifyChurchSettings();
   return data;
 }
