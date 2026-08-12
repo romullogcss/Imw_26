@@ -279,7 +279,7 @@ export const ContactPage: React.FC = () => {
                 </h2>
               </div>
               <a
-                href="https://maps.google.com/?q=Rua+Barao+do+Rio+Branco+450+Cosmopolis+SP"
+                href="https://maps.google.com/?q=Rua+Marcelo+Lugli+1457+Jardim+Planalto+Cosmopolis+SP"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs font-extrabold text-[#102bde] hover:underline uppercase"
@@ -292,7 +292,7 @@ export const ContactPage: React.FC = () => {
             <div className="relative w-full h-[400px] rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
               <iframe
                 title="Mapa Igreja Metodista Wesleyana Cosmópolis"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3681.3326176313833!2d-47.19890538503831!3d-22.641372885147575!2m3!1f0!0f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94c8e7e1f409520b%3A0x6b7728b76df47285!2sRua%20Bar%C3%A3o%20do%20Rio%20Branco%2C%20Cosm%C3%B3polis%20-%20SP%2C%2013150-000!5e0!3m2!1spt-BR!2sbr!4v1680000000000!5m2!1spt-BR!2sbr"
+                src="https://maps.google.com/maps?q=Rua%20Marcelo%20Lugli%2C%201457%20-%20Jardim%20Planalto%2C%20Cosm%C3%B3polis%20-%20SP&t=&z=16&ie=UTF8&iwloc=&output=embed"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}

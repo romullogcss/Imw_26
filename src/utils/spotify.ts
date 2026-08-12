@@ -14,7 +14,7 @@ export interface SpotifyInfo {
 /**
  * Extracts Spotify resource type and ID from various Spotify URL or URI formats.
  * Supported formats:
- * - https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8363a9548ec34bef
+ * - https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8af466b30f7c44a9
  * - https://open.spotify.com/embed/show/0axmDAHLlBF1rDWvhMkrUA
  * - https://open.spotify.com/episode/4rG8...
  * - https://open.spotify.com/playlist/37i9...

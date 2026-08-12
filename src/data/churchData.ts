@@ -154,12 +154,12 @@ export const CHURCH_INFO = {
   verseText: 'Porque onde estiverem dois ou três reunidos em meu nome, ali estou eu no meio deles.',
   verseReference: 'Mateus 18:20',
   address: {
-    street: 'Rua Barão do Rio Branco, 450',
-    neighborhood: 'Centro',
+    street: 'R. Marcelo Lugli, 1457',
+    neighborhood: 'Jardim Planalto',
     city: 'Cosmópolis',
     state: 'SP',
     zipCode: '13150-000',
-    fullAddress: 'Rua Barão do Rio Branco, 450 - Centro, Cosmópolis - SP, 13150-000',
+    fullAddress: 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP',
   },
   contacts: {
     phone: '(19) 3872-1234',
@@ -169,22 +169,22 @@ export const CHURCH_INFO = {
     secretaryHours: 'Terça a Sexta: 09h às 17h | Sábado: 09h às 12h',
   },
   socials: {
-    instagram: 'https://instagram.com',
-    facebook: 'https://facebook.com',
-    youtube: 'https://youtube.com',
-    spotify: 'https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8363a9548ec34bef',
+    instagram: 'https://www.instagram.com/imwcosmopolis/',
+    facebook: 'https://www.facebook.com/imwcosmopolis',
+    youtube: 'https://www.youtube.com/imwcosmopolis',
+    spotify: 'https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8af466b30f7c44a9',
   },
 };
 
 export const PASTORS_AND_LEADERS: Leader[] = [
   {
     id: 'pastor-titular',
-    name: 'Pr. Carlos Eduardo & Pra. Ana Maria Silva',
-    role: 'Pastores Titulares',
-    bio: 'À frente da IMW Cosmópolis há mais de 12 anos, com dedicação ao ensino da Palavra, pastoreio de famílias e fortalecimento do compromisso missionário da igreja.',
+    name: 'Pr. Gessivaldo Gomes Rebouças',
+    role: 'Pastor Presidente da IMW Cosmópolis',
+    bio: 'À frente da IMW Cosmópolis, com dedicação ao ensino da Palavra, pastoreio de famílias e fortalecimento do compromisso missionário da igreja.',
     photoUrl: '/foto-pastor-gessivaldo-gomes-reboucas.png',
     verse: 'Combati o bom combate, acabei a carreira, guardei a fé. (2 Timóteo 4:7)',
-    email: 'carlos.eduardo@imwcosmopolis.com.br',
+    email: 'gessivaldo.reboucas@imwcosmopolis.com.br',
   },
   {
     id: 'pastor-auxiliar',
@@ -220,7 +220,7 @@ export const TIMELINE_ITEMS: TimelineItem[] = [
   {
     year: '2008',
     title: 'Dedicação do Novo Templo',
-    description: 'Inauguração da sede própria na Rua Barão do Rio Branco, com capacidade para acolher confortavelmente as famílias cosmopolenses.',
+    description: 'Inauguração da sede própria na R. Marcelo Lugli, 1457 - Jardim Planalto, com capacidade para acolher confortavelmente as famílias cosmopolenses.',
     iconName: 'Church',
   },
   {
@@ -522,13 +522,13 @@ export const SERMONS_YOUTUBE: Sermon[] = [];
 
 export const SPOTIFY_PLAYLIST = {
   embedUrl: 'https://open.spotify.com/embed/show/0axmDAHLlBF1rDWvhMkrUA?utm_source=generator&theme=0',
-  spotifyUrl: 'https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8363a9548ec34bef',
+  spotifyUrl: 'https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8af466b30f7c44a9',
   playlistTitle: 'Podcast Oficial IMW Cosmópolis',
   tracks: [
     {
       id: 'sp-1',
       title: 'A Relevância da Graça Preveniente na Prática',
-      preacherOrArtist: 'Pr. Carlos Eduardo - Podcast IMW',
+      preacherOrArtist: 'Pr. Gessivaldo Gomes Rebouças - Podcast IMW',
       duration: '38:12',
       spotifyUri: 'spotify:episode:1',
     },
