@@ -437,14 +437,15 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             <div className="lg:col-span-5 relative">
               <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xl">
                 <img
-                  src="/foto-pastor-gessivaldo-gomes-reboucas.png"
-                  alt="Pr. Gessivaldo Gomes Rebouças - Pastor Presidente da IMW Cosmópolis"
+                  src="/foto-pastor-gessivaldo-e-missionaria-eugenia.png"
+                  alt="Pr. Gessivaldo Gomes Rebouças e Miss. Eugênia - IMW Cosmópolis"
+                  referrerPolicy="no-referrer"
                   className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">
-                  <p className="font-sans font-black text-xl uppercase text-white">Pr. Gessivaldo Gomes Rebouças</p>
-                  <p className="text-xs font-sans font-bold text-[#102bde] uppercase tracking-widest mt-1">Pastor Presidente da IMW Cosmópolis</p>
+                  <p className="font-sans font-black text-xl uppercase text-white">Pr. Gessivaldo & Miss. Eugênia</p>
+                  <p className="text-xs font-sans font-bold text-[#102bde] uppercase tracking-widest mt-1">Pastores da IMW Cosmópolis</p>
                 </div>
               </div>
             </div>
