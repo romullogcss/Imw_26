@@ -1142,16 +1142,6 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
           {/* Top Actions */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={handleSeedData}
-              disabled={seedingLoading}
-              title="Analisar e importar todos os eventos, horários e pregações do site para o CMS"
-              className="px-3.5 py-2 rounded-lg bg-[#102bde]/20 hover:bg-[#102bde]/30 text-blue-300 text-xs font-bold uppercase tracking-wider border border-[#102bde]/40 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Database className="w-3.5 h-3.5 text-[#102bde]" />
-              <span>{seedingLoading ? 'Sincronizando...' : 'Sincronizar Publicações no CMS'}</span>
-            </button>
-
-            <button
               onClick={onNavigateSite}
               className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold uppercase tracking-wider border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -2600,12 +2590,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     className="px-2.5 py-1 rounded-lg bg-[#102bde] hover:bg-[#0d23b8] text-white text-[11px] font-bold uppercase flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Adicionar Atividade</span>
+                    <span className="hidden">Adicionar Atividade</span>
                   </button>
                 </div>
 
                 {ministryForm.activities.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic">Nenhuma atividade cadastrada. Clique no botão acima para adicionar.</p>
+                  <p className="hidden text-[11px] text-slate-400 italic">Nenhuma atividade cadastrada. Clique no botão acima para adicionar.</p>
                 ) : (
                   <div className="space-y-2">
                     {ministryForm.activities.map((act, idx) => (

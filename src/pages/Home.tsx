@@ -77,7 +77,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="mt-6 text-slate-200 text-base sm:text-lg max-w-2xl mx-auto font-medium leading-relaxed drop-shadow"
+            className="hidden mt-6 text-slate-200 text-base sm:text-lg max-w-2xl mx-auto font-medium leading-relaxed drop-shadow"
           >
             Igreja Metodista Wesleyana em Cosmópolis. Um lugar para adorar, crescer e viver o propósito que Deus planejou para você.
           </motion.p>
@@ -112,7 +112,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
               className="px-8 py-4 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2 transform hover:-translate-y-0.5"
             >
               <Play className="w-4 h-4 fill-white" />
-              <span>ASSISTIR PREGAÇÕES</span>
+              <span className="hidden">ASSISTIR PREGAÇÕES</span>
             </button>
 
             <button
