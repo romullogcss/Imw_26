@@ -435,7 +435,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     if (!confirm(`Tem certeza que deseja excluir o evento "${title}"?`)) return;
     try {
       await deleteEvent(id);
-      if (imageUrl && imageUrl.includes('firebasestorage')) {
+      if (imageUrl) {
         deleteImageFromStorageUrl(imageUrl).catch(() => {});
       }
       setStatusMsg({ type: 'success', text: 'Evento excluído com sucesso!' });
@@ -591,7 +591,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       ...prev,
       gallery: prev.gallery.filter((item) => item.id !== photoId)
     }));
-    if (photoUrl && photoUrl.includes('firebasestorage')) {
+    if (photoUrl) {
       deleteImageFromStorageUrl(photoUrl).catch(() => {});
     }
   };
@@ -1844,7 +1844,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     <div className="flex items-center justify-between text-xs font-bold text-[#102bde]">
                       <span className="flex items-center gap-1">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Enviando imagem para o Firebase Storage...
+                        Enviando imagem para o Supabase Storage...
                       </span>
                       <span>{eventUploadProgress}%</span>
                     </div>
@@ -2302,7 +2302,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 <div className="bg-white p-3 rounded-xl border border-blue-200 space-y-2">
                   <label className="block text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
                     <Upload className="w-4 h-4 text-[#102bde]" />
-                    <span>Upload de Múltiplas Fotos (Firebase Storage)</span>
+                    <span>Upload de Múltiplas Fotos (Supabase Storage)</span>
                   </label>
                   
                   <input
@@ -2318,7 +2318,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                       <div className="flex items-center justify-between text-xs font-bold text-[#102bde]">
                         <span className="flex items-center gap-1">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Enviando galeria para Firebase Storage...
+                          Enviando galeria para Supabase Storage...
                         </span>
                         <span>{galleryUploadProgress}%</span>
                       </div>
