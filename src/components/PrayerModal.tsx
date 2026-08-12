@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Heart, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { X, Heart, Send, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { addPrayerRequest } from '../services/firestoreService';
 
 interface PrayerModalProps {
   isOpen: boolean;
@@ -13,14 +14,32 @@ export const PrayerModal: React.FC<PrayerModalProps> = ({ isOpen, onClose }) => 
   const [category, setCategory] = useState('Família e Lar');
   const [requestText, setRequestText] = useState('');
   const [isConfidential, setIsConfidential] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestText.trim()) return;
-    setIsSubmitted(true);
+
+    setIsSubmitting(true);
+    try {
+      await addPrayerRequest({
+        name: name.trim(),
+        phone: phone.trim(),
+        category,
+        requestText: requestText.trim(),
+        isConfidential: true,
+      });
+      setIsSubmitted(true);
+    } catch (err) {
+      console.error('Error submitting prayer request:', err);
+      // Even on error, addPrayerRequest handles local fallback
+      setIsSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -159,10 +178,20 @@ export const PrayerModal: React.FC<PrayerModalProps> = ({ isOpen, onClose }) => 
                   </button>
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-bold shadow-md transition-all cursor-pointer"
+                    disabled={isSubmitting}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-bold shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Send className="w-4 h-4" />
-                    <span>Enviar Pedido</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Enviando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Enviar Pedido</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

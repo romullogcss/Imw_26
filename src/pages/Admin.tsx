@@ -21,7 +21,10 @@ import {
   subscribeChurchSettings,
   updateChurchSettings,
   ChurchSettingsData,
-  seedInitialFirestoreData
+  seedInitialFirestoreData,
+  subscribePrayerRequests,
+  updatePrayerRequestStatus,
+  deletePrayerRequest
 } from '../services/firestoreService';
 import { 
   uploadFile,
@@ -42,7 +45,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry } from '../types';
+import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -50,7 +53,8 @@ import {
   Lock, Mail, LogOut, Plus, Edit2, Trash2, Calendar, Clock, 
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
-  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music
+  Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music,
+  Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck
 } from 'lucide-react';
 
 interface AdminProps {
@@ -68,13 +72,19 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [submittingLogin, setSubmittingLogin] = useState(false);
 
   // Navigation tab in Admin CMS
-  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries'>('schedules');
+  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers'>('schedules');
 
-  // Firestore Collections State
+  // Firestore / Supabase Collections State
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [events, setEvents] = useState<ChurchEvent[]>([]);
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [ministries, setMinistries] = useState<Ministry[]>([]);
+  const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+
+  // Prayer Request Filter States
+  const [prayerStatusFilter, setPrayerStatusFilter] = useState<'all' | 'pending' | 'prayed' | 'archived'>('all');
+  const [prayerCategoryFilter, setPrayerCategoryFilter] = useState<string>('all');
+  const [prayerSearchQuery, setPrayerSearchQuery] = useState<string>('');
 
   // Modals state
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -147,6 +157,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     const unsubEvts = subscribeEvents((data) => setEvents(data));
     const unsubSermons = subscribeSermons((data) => setSermons(data));
     const unsubMin = subscribeMinistries((data) => setMinistries(data));
+    const unsubPrayers = subscribePrayerRequests((data) => setPrayers(data));
     const unsubSettings = subscribeChurchSettings((settings) => {
       setChurchSettings(settings);
       if (settings.spotifyUrl) {
@@ -166,6 +177,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       unsubEvts();
       unsubSermons();
       unsubMin();
+      unsubPrayers();
       unsubSettings();
     };
   }, [user]);
@@ -1255,6 +1267,32 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 {ministries.length}
               </span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('prayers')}
+              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                activeTab === 'prayers'
+                  ? 'bg-[#102bde] text-white shadow-md'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-red-500 fill-red-500/20" />
+                <span>Pedidos de Oração</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                {prayers.filter((p) => p.status === 'pending').length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                    {prayers.filter((p) => p.status === 'pending').length} novos
+                  </span>
+                )}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'prayers' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {prayers.length}
+                </span>
+              </div>
+            </button>
           </div>
 
           {/* Quick Info Box */}
@@ -1707,6 +1745,349 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 5: PEDIDOS DE ORAÇÃO & INTERCESSÃO */}
+          {activeTab === 'prayers' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 rounded-2xl p-6 text-white border border-indigo-800/40 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                  <Heart className="w-48 h-48 text-white fill-white" />
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-bold uppercase tracking-wider mb-2">
+                      <Heart className="w-3.5 h-3.5 fill-red-400 text-red-400" />
+                      <span>Ministério de Intercessão</span>
+                    </div>
+                    <h2 className="text-2xl font-black uppercase tracking-tight text-white">Pedidos de Oração</h2>
+                    <p className="text-xs text-slate-300 mt-1 max-w-xl">
+                      Acompanhe, ore e entre em contato com os membros e visitantes que enviaram motivos de oração pelo site.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-sans">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total de Pedidos</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{prayers.length}</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 text-[#102bde] rounded-xl">
+                    <Heart className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pendentes (Não orados)</p>
+                    <p className="text-2xl font-black text-amber-900 mt-1">
+                      {prayers.filter((p) => p.status === 'pending').length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-amber-100 text-amber-700 rounded-xl">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Em Oração / Atendidos</p>
+                    <p className="text-2xl font-black text-emerald-900 mt-1">
+                      {prayers.filter((p) => p.status === 'prayed').length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-emerald-100 text-emerald-700 rounded-xl">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Arquivados</p>
+                    <p className="text-2xl font-black text-slate-700 mt-1">
+                      {prayers.filter((p) => p.status === 'archived').length}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-slate-200 text-slate-600 rounded-xl">
+                    <Archive className="w-5 h-5" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter and Search Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 font-sans text-xs">
+                {/* Status Tabs */}
+                <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                  <button
+                    onClick={() => setPrayerStatusFilter('all')}
+                    className={`px-3 py-2 rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
+                      prayerStatusFilter === 'all'
+                        ? 'bg-[#102bde] text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Todos ({prayers.length})
+                  </button>
+                  <button
+                    onClick={() => setPrayerStatusFilter('pending')}
+                    className={`px-3 py-2 rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      prayerStatusFilter === 'pending'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    Pendentes ({prayers.filter((p) => p.status === 'pending').length})
+                  </button>
+                  <button
+                    onClick={() => setPrayerStatusFilter('prayed')}
+                    className={`px-3 py-2 rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      prayerStatusFilter === 'prayed'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Em Oração ({prayers.filter((p) => p.status === 'prayed').length})
+                  </button>
+                  <button
+                    onClick={() => setPrayerStatusFilter('archived')}
+                    className={`px-3 py-2 rounded-xl font-bold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      prayerStatusFilter === 'archived'
+                        ? 'bg-slate-700 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    Arquivados ({prayers.filter((p) => p.status === 'archived').length})
+                  </button>
+                </div>
+
+                {/* Category & Search inputs */}
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                  <select
+                    value={prayerCategoryFilter}
+                    onChange={(e) => setPrayerCategoryFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-300 text-slate-800 bg-slate-50 font-medium focus:outline-none focus:border-[#102bde]"
+                  >
+                    <option value="all">Todas as Categorias</option>
+                    <option value="Família e Lar">Família e Lar</option>
+                    <option value="Saúde e Cura">Saúde e Cura</option>
+                    <option value="Vida Financeira & Trabalho">Vida Financeira & Trabalho</option>
+                    <option value="Crescimento Espiritual">Crescimento Espiritual</option>
+                    <option value="Libertação & Paz">Libertação & Paz</option>
+                    <option value="Agradecimento & Vitória">Agradecimento & Vitória</option>
+                  </select>
+
+                  <div className="relative flex-1 md:w-48">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={prayerSearchQuery}
+                      onChange={(e) => setPrayerSearchQuery(e.target.value)}
+                      placeholder="Buscar por nome ou texto..."
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 text-slate-800 placeholder-slate-400 bg-slate-50 focus:outline-none focus:border-[#102bde]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Prayer Requests Grid */}
+              {(() => {
+                const filtered = prayers.filter((item) => {
+                  if (prayerStatusFilter !== 'all' && item.status !== prayerStatusFilter) return false;
+                  if (prayerCategoryFilter !== 'all' && item.category !== prayerCategoryFilter) return false;
+                  if (prayerSearchQuery.trim()) {
+                    const q = prayerSearchQuery.toLowerCase();
+                    const nameMatch = (item.name || '').toLowerCase().includes(q);
+                    const textMatch = (item.requestText || '').toLowerCase().includes(q);
+                    const phoneMatch = (item.phone || '').toLowerCase().includes(q);
+                    if (!nameMatch && !textMatch && !phoneMatch) return false;
+                  }
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 font-sans space-y-3">
+                      <Heart className="w-12 h-12 mx-auto text-slate-300 stroke-1" />
+                      <p className="font-bold text-sm text-slate-700">Nenhum pedido de oração encontrado</p>
+                      <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                        {prayers.length === 0
+                          ? 'Ainda não foram registrados pedidos de oração pelo formulário do site.'
+                          : 'Nenhum pedido corresponde aos filtros ou busca selecionados.'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filtered.map((prayer) => {
+                      const formattedDate = new Date(prayer.createdAt).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+
+                      const cleanPhone = (prayer.phone || '').replace(/\D/g, '');
+                      const whatsappUrl = cleanPhone
+                        ? `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(
+                            `A paz do Senhor Jesus, ${prayer.name || 'irmão(ã)'}! Vi seu pedido de oração no site da IMW Cosmópolis. Estamos orando por você!`
+                          )}`
+                        : '';
+
+                      return (
+                        <div
+                          key={prayer.id}
+                          className={`bg-white rounded-2xl p-5 border shadow-sm transition-all flex flex-col justify-between gap-4 font-sans ${
+                            prayer.status === 'pending'
+                              ? 'border-amber-300 bg-amber-50/20'
+                              : prayer.status === 'prayed'
+                              ? 'border-emerald-200 bg-emerald-50/10'
+                              : 'border-slate-200 opacity-75 bg-slate-50/50'
+                          }`}
+                        >
+                          <div className="space-y-3">
+                            {/* Card Header: Category & Status */}
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="px-2.5 py-1 rounded-lg bg-[#102bde]/10 text-[#102bde] font-bold text-[11px] uppercase tracking-wider border border-[#102bde]/20">
+                                {prayer.category}
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-400">
+                                  {formattedDate}
+                                </span>
+
+                                {prayer.status === 'pending' && (
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase border border-amber-300 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    Pendente
+                                  </span>
+                                )}
+                                {prayer.status === 'prayed' && (
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase border border-emerald-300 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Em Oração
+                                  </span>
+                                )}
+                                {prayer.status === 'archived' && (
+                                  <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-extrabold uppercase flex items-center gap-1">
+                                    <Archive className="w-3 h-3" />
+                                    Arquivado
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Requester Info */}
+                            <div className="flex items-center justify-between pt-1">
+                              <div>
+                                <h4 className="font-bold text-sm text-slate-900">
+                                  {prayer.name || 'Anônimo'}
+                                </h4>
+                                {prayer.phone && (
+                                  <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+                                    <Phone className="w-3 h-3 text-slate-400" />
+                                    <span>{prayer.phone}</span>
+                                  </p>
+                                )}
+                              </div>
+
+                              {whatsappUrl && (
+                                <a
+                                  href={whatsappUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                                  title="Enviar mensagem no WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 fill-white/20" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
+                            </div>
+
+                            {/* Prayer Request Text */}
+                            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-800 text-xs leading-relaxed italic relative">
+                              "{prayer.requestText}"
+                            </div>
+
+                            {/* Confidentiality tag */}
+                            <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Confidencial / Acesso Restrito à Liderança</span>
+                            </div>
+                          </div>
+
+                          {/* Card Footer Actions */}
+                          <div className="pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              {prayer.status !== 'prayed' && (
+                                <button
+                                  onClick={() => updatePrayerRequestStatus(prayer.id, 'prayed')}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Marcar como Orado</span>
+                                </button>
+                              )}
+
+                              {prayer.status === 'prayed' && (
+                                <button
+                                  onClick={() => updatePrayerRequestStatus(prayer.id, 'pending')}
+                                  className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Voltar a Pendente</span>
+                                </button>
+                              )}
+
+                              {prayer.status !== 'archived' ? (
+                                <button
+                                  onClick={() => updatePrayerRequestStatus(prayer.id, 'archived')}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                  <span>Arquivar</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => updatePrayerRequestStatus(prayer.id, 'pending')}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs uppercase flex items-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  <span>Desarquivar</span>
+                                </button>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Tem certeza que deseja excluir este pedido de oração?')) {
+                                  await deletePrayerRequest(prayer.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Excluir pedido de oração"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

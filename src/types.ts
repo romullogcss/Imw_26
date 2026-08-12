@@ -101,3 +101,14 @@ export interface SpotifyTrack {
   duration: string;
   spotifyUri: string;
 }
+
+export interface PrayerRequest {
+  id: string;
+  name?: string;
+  phone?: string;
+  category: string;
+  requestText: string;
+  isConfidential?: boolean;
+  status: 'pending' | 'prayed' | 'archived';
+  createdAt: string;
+}

@@ -107,13 +107,15 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-10 flex flex-wrap items-center justify-center gap-4"
           >
-            <button
-              onClick={() => onNavigate('sermons')}
+            <a
+              href="https://youtube.com/live/38EHVyRv4k0?feature=share"
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-8 py-4 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2 transform hover:-translate-y-0.5"
             >
               <Play className="w-4 h-4 fill-white" />
-              <span className="hidden">ASSISTIR PREGAÇÕES</span>
-            </button>
+              <span>ASSISTIR PREGAÇÕES</span>
+            </a>
 
             <button
               onClick={() => onNavigate('schedule')}
@@ -182,13 +184,15 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
                 </p>
 
                 <div className="pt-3 flex flex-wrap items-center gap-4">
-                  <button
-                    onClick={() => onNavigate('sermons')}
+                  <a
+                    href="https://youtube.com/live/38EHVyRv4k0?feature=share"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="px-6 py-3.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2"
                   >
                     <Play className="w-4 h-4 fill-white" />
                     <span>ASSISTIR AGORA</span>
-                  </button>
+                  </a>
 
                   <button
                     onClick={() => onNavigate('sermons')}

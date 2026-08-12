@@ -115,13 +115,15 @@ export const Header: React.FC<HeaderProps> = ({
             })}
 
             {/* Watch Live CTA Pill */}
-            <button
-              onClick={() => handleNavClick('sermons')}
+            <a
+              href="https://youtube.com/live/38EHVyRv4k0?feature=share"
+              target="_blank"
+              rel="noopener noreferrer"
               className="ml-3 px-5 py-2.5 text-xs font-sans font-extrabold uppercase tracking-wider text-white bg-[#102bde] hover:bg-[#0d23b8] rounded-lg transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-[#102bde]/20 active:scale-95"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>ASSISTIR</span>
-            </button>
+            </a>
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -172,16 +174,16 @@ export const Header: React.FC<HeaderProps> = ({
               })}
 
               <div className="pt-4 border-t border-slate-200 mt-4 space-y-3">
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    handleNavClick('sermons');
-                  }}
+                <a
+                  href="https://youtube.com/live/38EHVyRv4k0?feature=share"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg bg-[#102bde] hover:bg-[#0d23b8] text-white text-xs font-sans font-black tracking-wider uppercase cursor-pointer shadow-md shadow-[#102bde]/20"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   <span>ASSISTIR A PREGAÇÕES</span>
-                </button>
+                </a>
 
                 <button
                   onClick={() => {

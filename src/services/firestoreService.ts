@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry } from '../types';
+import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { 
   extractYoutubeId, 
@@ -830,3 +830,194 @@ export async function updateChurchSettings(settings: ChurchSettingsData) {
   fetchAndNotifyChurchSettings();
   return data;
 }
+
+// -------------------------------------------------------------
+// PRAYER REQUESTS
+// -------------------------------------------------------------
+
+const PRAYER_REQUESTS_LOCAL_KEY = 'imw_prayer_requests';
+
+function getLocalPrayerRequests(): PrayerRequest[] {
+  try {
+    const raw = localStorage.getItem(PRAYER_REQUESTS_LOCAL_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.warn('[PrayerRequests] Erro ao ler do localStorage:', err);
+  }
+  return [];
+}
+
+function saveLocalPrayerRequests(items: PrayerRequest[]) {
+  try {
+    localStorage.setItem(PRAYER_REQUESTS_LOCAL_KEY, JSON.stringify(items));
+  } catch (err) {
+    console.warn('[PrayerRequests] Erro ao salvar no localStorage:', err);
+  }
+}
+
+function mapPrayerRequest(row: any): PrayerRequest {
+  return {
+    id: String(row.id),
+    name: row.name || row.user_name || '',
+    phone: row.phone || row.user_phone || '',
+    category: row.category || 'Geral',
+    requestText: row.request_text || row.requestText || row.text || '',
+    isConfidential: row.is_confidential ?? row.isConfidential ?? true,
+    status: (row.status === 'prayed' || row.status === 'archived') ? row.status : 'pending',
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+}
+
+function mapPrayerRequestToDbPayload(data: Partial<PrayerRequest>): Record<string, any> {
+  const payload: Record<string, any> = {};
+  if (data.id !== undefined) payload.id = data.id;
+  if (data.name !== undefined) payload.name = data.name;
+  if (data.phone !== undefined) payload.phone = data.phone;
+  if (data.category !== undefined) payload.category = data.category;
+  if (data.requestText !== undefined) payload.request_text = data.requestText;
+  if (data.isConfidential !== undefined) payload.is_confidential = data.isConfidential;
+  if (data.status !== undefined) payload.status = data.status;
+  if (data.createdAt !== undefined) payload.created_at = data.createdAt;
+  return payload;
+}
+
+const prayerListeners = new Set<(prayers: PrayerRequest[]) => void>();
+let prayerChannel: any = null;
+
+async function fetchAndNotifyPrayerRequests() {
+  try {
+    const { data, error } = await supabase
+      .from('prayer_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    let items: PrayerRequest[] = [];
+    if (error) {
+      items = getLocalPrayerRequests();
+    } else if (data && data.length > 0) {
+      items = data.map(mapPrayerRequest);
+      // Merge local un-synced items if any
+      const localItems = getLocalPrayerRequests();
+      const existingIds = new Set(items.map((i) => i.id));
+      const unsynced = localItems.filter((i) => !existingIds.has(i.id));
+      if (unsynced.length > 0) {
+        items = [...unsynced, ...items];
+      }
+      saveLocalPrayerRequests(items);
+    } else {
+      items = getLocalPrayerRequests();
+    }
+
+    prayerListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar prayer_requests:', err);
+    const items = getLocalPrayerRequests();
+    prayerListeners.forEach((cb) => cb(items));
+  }
+}
+
+function initPrayerRequestsRealtime() {
+  if (!prayerChannel) {
+    prayerChannel = supabase
+      .channel('public:prayer_requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'prayer_requests' }, () => {
+        fetchAndNotifyPrayerRequests();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:prayer_requests conectado.');
+        }
+      });
+  }
+}
+
+export function subscribePrayerRequests(callback: (prayers: PrayerRequest[]) => void) {
+  prayerListeners.add(callback);
+  fetchAndNotifyPrayerRequests();
+  initPrayerRequestsRealtime();
+
+  return () => {
+    prayerListeners.delete(callback);
+    if (prayerListeners.size === 0 && prayerChannel) {
+      supabase.removeChannel(prayerChannel);
+      prayerChannel = null;
+    }
+  };
+}
+
+export async function addPrayerRequest(data: Omit<PrayerRequest, 'id' | 'createdAt' | 'status'>): Promise<PrayerRequest> {
+  const newId = `prayer_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+
+  const newRequest: PrayerRequest = {
+    id: newId,
+    name: data.name || '',
+    phone: data.phone || '',
+    category: data.category || 'Geral',
+    requestText: data.requestText || '',
+    isConfidential: data.isConfidential ?? true,
+    status: 'pending',
+    createdAt: now,
+  };
+
+  const localItems = getLocalPrayerRequests();
+  const updatedLocal = [newRequest, ...localItems];
+  saveLocalPrayerRequests(updatedLocal);
+
+  try {
+    const payload = mapPrayerRequestToDbPayload(newRequest);
+    const { error } = await supabase.from('prayer_requests').insert([payload]);
+    if (error) {
+      console.warn('[Supabase] Aviso ao inserir prayer_requests:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao salvar pedido de oração:', err);
+  }
+
+  fetchAndNotifyPrayerRequests();
+  return newRequest;
+}
+
+export async function updatePrayerRequestStatus(id: string, status: 'pending' | 'prayed' | 'archived'): Promise<void> {
+  const localItems = getLocalPrayerRequests();
+  const updatedLocal = localItems.map((p) => (p.id === id ? { ...p, status } : p));
+  saveLocalPrayerRequests(updatedLocal);
+
+  try {
+    const { error } = await supabase
+      .from('prayer_requests')
+      .update({ status })
+      .eq('id', id);
+    if (error) {
+      console.warn('[Supabase] Aviso ao atualizar status de prayer_requests:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao atualizar status:', err);
+  }
+
+  fetchAndNotifyPrayerRequests();
+}
+
+export async function deletePrayerRequest(id: string): Promise<void> {
+  const localItems = getLocalPrayerRequests();
+  const updatedLocal = localItems.filter((p) => p.id !== id);
+  saveLocalPrayerRequests(updatedLocal);
+
+  try {
+    const { error } = await supabase
+      .from('prayer_requests')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.warn('[Supabase] Aviso ao deletar de prayer_requests:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao deletar pedido de oração:', err);
+  }
+
+  fetchAndNotifyPrayerRequests();
+}
+
