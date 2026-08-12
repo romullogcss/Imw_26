@@ -120,7 +120,9 @@ export function subscribeSermons(callback: (items: Sermon[]) => void) {
       const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
       const embedUrl = data.embedUrl || (ytId ? getYoutubeEmbedUrl(ytId) : '');
       const watchUrl = data.youtubeUrl || (ytId ? getYoutubeWatchUrl(ytId) : '');
-      const thumbnail = data.thumbnail || (ytId ? getYoutubeThumbnailUrl(ytId) : '');
+      const thumbnail = data.thumbnail || data.imageUrl || (ytId ? getYoutubeThumbnailUrl(ytId) : '');
+      const imageUrl = data.imageUrl || thumbnail;
+      const imagePath = data.imagePath || '';
 
       return {
         id: d.id,
@@ -129,6 +131,8 @@ export function subscribeSermons(callback: (items: Sermon[]) => void) {
         youtubeUrl: watchUrl || data.youtubeUrl || '',
         embedUrl: embedUrl,
         thumbnail: thumbnail,
+        imageUrl: imageUrl,
+        imagePath: imagePath,
       } as Sermon;
     });
     
@@ -144,7 +148,9 @@ export async function addSermon(data: Omit<Sermon, 'id'>) {
   const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
   const embedUrl = getYoutubeEmbedUrl(ytId);
   const watchUrl = data.youtubeUrl || getYoutubeWatchUrl(ytId);
-  const thumbnail = data.thumbnail?.trim() || getYoutubeThumbnailUrl(ytId);
+  const thumbnail = data.thumbnail?.trim() || data.imageUrl?.trim() || getYoutubeThumbnailUrl(ytId);
+  const imageUrl = data.imageUrl?.trim() || thumbnail;
+  const imagePath = data.imagePath?.trim() || '';
 
   return await addDoc(collection(db, SERMONS_COL), {
     ...data,
@@ -152,6 +158,8 @@ export async function addSermon(data: Omit<Sermon, 'id'>) {
     youtubeUrl: watchUrl,
     embedUrl,
     thumbnail,
+    imageUrl,
+    imagePath,
     createdAt: serverTimestamp()
   });
 }
@@ -165,8 +173,9 @@ export async function updateSermon(id: string, data: Partial<Sermon>) {
     updatedData.youtubeId = ytId;
     updatedData.embedUrl = getYoutubeEmbedUrl(ytId);
     updatedData.youtubeUrl = data.youtubeUrl || getYoutubeWatchUrl(ytId);
-    if (!data.thumbnail) {
+    if (!data.thumbnail && !data.imageUrl) {
       updatedData.thumbnail = getYoutubeThumbnailUrl(ytId);
+      updatedData.imageUrl = updatedData.thumbnail;
     }
   }
   return await updateDoc(docRef, updatedData);

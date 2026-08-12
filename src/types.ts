@@ -82,6 +82,8 @@ export interface Sermon {
   scripture: string;
   category: string;
   thumbnail: string;
+  imageUrl?: string;
+  imagePath?: string;
   summary?: string;
 }
 

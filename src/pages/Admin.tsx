@@ -29,7 +29,9 @@ import {
   seedInitialFirestoreData
 } from '../services/firestoreService';
 import { 
+  uploadFile,
   uploadImageToStorage, 
+  deleteFile,
   deleteImageFromStorageUrl, 
   validateImageFile 
 } from '../services/storageService';
@@ -110,6 +112,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [galleryUploadError, setGalleryUploadError] = useState<string | null>(null);
   const [newGalleryCaption, setNewGalleryCaption] = useState('');
   const [newGalleryUrl, setNewGalleryUrl] = useState('');
+
+  // Sermon Cover Image Upload State
+  const [sermonCoverFile, setSermonCoverFile] = useState<File | null>(null);
+  const [sermonCoverPreview, setSermonCoverPreview] = useState<string | null>(null);
+  const [sermonUploadProgress, setSermonUploadProgress] = useState<number | null>(null);
+  const [sermonUploadError, setSermonUploadError] = useState<string | null>(null);
 
   // Status/Feedback messages
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -688,9 +696,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     youtubeUrl: string;
     summary: string;
     thumbnail: string;
+    imagePath?: string;
   }>({
     title: '',
-    preacher: 'Pr. Paulo Henrique Silva',
+    preacher: 'Pr. Gessivaldo Gomes Rebouças',
     date: '10 de Agosto de 2026',
     scripture: 'João 3:16',
     duration: '45 min',
@@ -698,9 +707,15 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     youtubeUrl: '',
     summary: '',
     thumbnail: '',
+    imagePath: '',
   });
 
   const openSermonModal = (item?: Sermon) => {
+    setSermonCoverFile(null);
+    setSermonCoverPreview(null);
+    setSermonUploadProgress(null);
+    setSermonUploadError(null);
+
     if (item) {
       setEditingSermon(item);
       setSermonForm({
@@ -712,13 +727,14 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         category: item.category,
         youtubeUrl: item.youtubeUrl || item.youtubeId || '',
         summary: item.summary || '',
-        thumbnail: item.thumbnail || '',
+        thumbnail: item.thumbnail || item.imageUrl || '',
+        imagePath: item.imagePath || '',
       });
     } else {
       setEditingSermon(null);
       setSermonForm({
         title: '',
-        preacher: 'Pr. Paulo Henrique Silva',
+        preacher: 'Pr. Gessivaldo Gomes Rebouças',
         date: '10 de Agosto de 2026',
         scripture: 'João 3:16',
         duration: '45 min',
@@ -726,14 +742,32 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         youtubeUrl: '',
         summary: '',
         thumbnail: '',
+        imagePath: '',
       });
     }
     setSermonModalOpen(true);
   };
 
+  const handleSermonFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSermonUploadError(null);
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setSermonUploadError(validation.error || 'Arquivo de capa inválido.');
+      return;
+    }
+
+    setSermonCoverFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setSermonCoverPreview(previewUrl);
+  };
+
   const handleSaveSermon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sermonForm.title || !sermonForm.preacher) return;
+    setSermonUploadError(null);
 
     if (!isValidYoutubeUrl(sermonForm.youtubeUrl)) {
       setStatusMsg({ type: 'error', text: 'Link do YouTube inválido. Cole a URL completa do vídeo.' });
@@ -744,33 +778,76 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       const ytId = extractYoutubeId(sermonForm.youtubeUrl) || '';
       const embedUrl = getYoutubeEmbedUrl(ytId);
       const watchUrl = getYoutubeWatchUrl(sermonForm.youtubeUrl);
-      const thumbnail = sermonForm.thumbnail.trim() || getYoutubeThumbnailUrl(ytId);
+      
+      let finalImageUrl = sermonForm.thumbnail.trim();
+      let finalImagePath = sermonForm.imagePath || '';
+
+      // Upload sermon cover file if user selected one
+      if (sermonCoverFile) {
+        const folderId = editingSermon ? editingSermon.id : `sermon_${Date.now()}`;
+        setSermonUploadProgress(0);
+
+        const uploadRes = await uploadFile(
+          sermonCoverFile,
+          'pregacoes',
+          folderId,
+          undefined,
+          (progress) => setSermonUploadProgress(progress)
+        );
+
+        finalImageUrl = uploadRes.publicUrl;
+        finalImagePath = uploadRes.storagePath;
+
+        // If editing and replaced an existing uploaded cover, delete old cover from Supabase Storage
+        if (editingSermon) {
+          const oldPathOrUrl = editingSermon.imagePath || editingSermon.thumbnail;
+          if (oldPathOrUrl && oldPathOrUrl !== finalImageUrl) {
+            deleteFile(oldPathOrUrl).catch(() => {});
+          }
+        }
+      }
+
+      // If no custom image or upload, default to YouTube thumbnail
+      if (!finalImageUrl) {
+        finalImageUrl = getYoutubeThumbnailUrl(ytId);
+      }
 
       const fullSermon = {
         ...sermonForm,
         youtubeId: ytId,
         youtubeUrl: watchUrl,
         embedUrl,
-        thumbnail
+        thumbnail: finalImageUrl,
+        imageUrl: finalImageUrl,
+        imagePath: finalImagePath,
       };
 
       if (editingSermon) {
         await updateSermon(editingSermon.id, fullSermon);
-        setStatusMsg({ type: 'success', text: 'Pregação atualizada com sucesso!' });
+        setStatusMsg({ type: 'success', text: 'Pregação e capa atualizadas com sucesso!' });
       } else {
         await addSermon(fullSermon);
         setStatusMsg({ type: 'success', text: 'Nova pregação salva com sucesso!' });
       }
+
+      setSermonCoverFile(null);
+      setSermonCoverPreview(null);
       setSermonModalOpen(false);
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: 'Erro ao salvar pregação: ' + err.message });
+      console.error('Error saving sermon:', err);
+      setSermonUploadError('Erro ao enviar capa ou salvar pregação: ' + (err.message || 'Falha de conexão.'));
+    } finally {
+      setSermonUploadProgress(null);
     }
   };
 
-  const handleDeleteSermon = async (id: string, title: string) => {
+  const handleDeleteSermon = async (id: string, title: string, thumbnail?: string, imagePath?: string) => {
     if (!confirm(`Tem certeza que deseja excluir a pregação "${title}"?`)) return;
     try {
       await deleteSermon(id);
+      if (imagePath || thumbnail) {
+        deleteFile(imagePath || thumbnail).catch(() => {});
+      }
       setStatusMsg({ type: 'success', text: 'Pregação excluída com sucesso!' });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: 'Erro ao excluir pregação: ' + err.message });
@@ -1487,7 +1564,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteSermon(sermon.id, sermon.title)}
+                            onClick={() => handleDeleteSermon(sermon.id, sermon.title, sermon.thumbnail, sermon.imagePath)}
                             className="px-2.5 py-1.5 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -2052,36 +2129,98 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
               )}
 
-              <div>
-                <label className="block font-bold uppercase text-slate-700 mb-1">Link da Capa da Pregação (Imagem / Thumbnail)</label>
-                <input
-                  type="text"
-                  value={sermonForm.thumbnail}
-                  onChange={(e) => setSermonForm({ ...sermonForm, thumbnail: e.target.value })}
-                  placeholder="https://exemplo.com/minha-capa.jpg ou assets/imagem.jpg"
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:border-[#102bde]"
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Cole o link direto de uma imagem na internet. Se deixar em branco, a capa será gerada automaticamente a partir do vídeo do YouTube.
-                </p>
-              </div>
+              {/* Capa da Pregação Upload & Link (Supabase Storage) */}
+              <div className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <label className="block font-black text-xs uppercase text-slate-800 tracking-wider">
+                    Capa da Pregação (Imagem Personalizada)
+                  </label>
+                  <span className="text-[10px] font-bold text-[#102bde] bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase">
+                    Supabase Storage
+                  </span>
+                </div>
 
-              {/* Cover Image Preview */}
-              {(sermonForm.thumbnail.trim() || (sermonForm.youtubeUrl.trim() && isValidYoutubeUrl(sermonForm.youtubeUrl))) && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Pré-visualização da Capa:</span>
-                  <div className="relative aspect-video max-w-xs overflow-hidden rounded-lg border border-slate-200 bg-slate-200 shadow-xs">
-                    <img
-                      src={sermonForm.thumbnail.trim() || getYoutubeThumbnailUrl(sermonForm.youtubeUrl)}
-                      alt="Pré-visualização da capa"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=600';
+                {/* Upload Error Banner */}
+                {sermonUploadError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                    <span>{sermonUploadError}</span>
+                  </div>
+                )}
+
+                {/* File Upload Progress Bar */}
+                {sermonUploadProgress !== null && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-[#102bde]">
+                      <span>Enviando capa para o Supabase Storage...</span>
+                      <span>{sermonUploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-[#102bde] h-full transition-all duration-300"
+                        style={{ width: `${sermonUploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* File Upload Selector */}
+                <div className="space-y-2">
+                  <label className="relative flex flex-col items-center justify-center p-4 border-2 border-dashed border-slate-300 hover:border-[#102bde] rounded-xl cursor-pointer bg-white transition-colors group">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-700 group-hover:text-[#102bde]">
+                      <Upload className="w-4 h-4 text-[#102bde]" />
+                      <span>
+                        {sermonCoverFile ? sermonCoverFile.name : 'Upload de Capa (JPG, PNG ou WEBP)'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">Limite máximo de 5MB</p>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleSermonFileSelect}
+                      disabled={sermonUploadProgress !== null}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Option for Direct URL */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                      Ou cole o link direto da imagem na web:
+                    </label>
+                    <input
+                      type="text"
+                      value={sermonForm.thumbnail}
+                      onChange={(e) => {
+                        setSermonForm({ ...sermonForm, thumbnail: e.target.value });
+                        setSermonCoverFile(null);
+                        setSermonCoverPreview(null);
                       }}
+                      placeholder="https://exemplo.com/minha-capa.jpg"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-[#102bde] bg-white font-medium"
                     />
                   </div>
                 </div>
-              )}
+
+                {/* Cover Preview Box */}
+                {(sermonCoverPreview || sermonForm.thumbnail.trim() || (sermonForm.youtubeUrl.trim() && isValidYoutubeUrl(sermonForm.youtubeUrl))) && (
+                  <div className="pt-2 border-t border-slate-200 space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Pré-visualização da Capa:
+                    </span>
+                    <div className="relative aspect-video max-w-xs overflow-hidden rounded-lg border border-slate-200 bg-slate-200 shadow-xs">
+                      <img
+                        src={sermonCoverPreview || sermonForm.thumbnail.trim() || getYoutubeThumbnailUrl(sermonForm.youtubeUrl)}
+                        alt="Pré-visualização da capa"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?auto=format&fit=crop&q=80&w=600';
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div>
                 <label className="block font-bold uppercase text-slate-700 mb-1">Resumo / Esboço da Mensagem (Opcional)</label>
@@ -2097,16 +2236,25 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  disabled={sermonUploadProgress !== null}
                   onClick={() => setSermonModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black uppercase tracking-wider cursor-pointer shadow-md"
+                  disabled={sermonUploadProgress !== null}
+                  className="px-5 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
-                  Salvar
+                  {sermonUploadProgress !== null ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Enviando Capa ({sermonUploadProgress}%)...</span>
+                    </>
+                  ) : (
+                    <span>{editingSermon ? 'Salvar Alterações' : 'Cadastrar Pregação'}</span>
+                  )}
                 </button>
               </div>
             </form>
