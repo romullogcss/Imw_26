@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged, 
-  User 
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { 
   subscribeSchedules, 
   addSchedule, 
@@ -130,11 +125,17 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
   // Track auth status
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setLoadingAuth(false);
     });
-    return () => unsubscribe();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoadingAuth(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Subscribe to collections when logged in & auto-seed if empty
@@ -154,9 +155,9 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       }
     });
 
-    // Automatically check and import initial site data to Firestore if collections are empty
+    // Automatically check and import initial site data to Supabase if tables are empty
     seedInitialFirestoreData(false).catch((err) => {
-      console.error('Error auto-seeding Firestore:', err);
+      console.error('Error auto-seeding Supabase:', err);
     });
 
     return () => {
@@ -204,17 +205,24 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     setLoginError('');
     setSubmittingLogin(true);
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
-      setStatusMsg({ type: 'success', text: 'Login realizado com sucesso!' });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          setLoginError('E-mail ou senha incorretos. Verifique suas credenciais.');
+        } else {
+          setLoginError(`Erro ao fazer login: ${error.message || 'Verifique sua conexão'}`);
+        }
+      } else {
+        setUser(data.user);
+        setStatusMsg({ type: 'success', text: 'Login realizado com sucesso!' });
+      }
     } catch (err: any) {
       console.error('Login error:', err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setLoginError('E-mail ou senha incorretos. Verifique suas credenciais.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setLoginError('Muitas tentativas malsucedidas. Aguarde alguns instantes e tente novamente.');
-      } else {
-        setLoginError(`Erro ao fazer login: ${err.message || 'Verifique sua conexão'}`);
-      }
+      setLoginError(`Erro ao fazer login: ${err.message || 'Verifique sua conexão'}`);
     } finally {
       setSubmittingLogin(false);
     }
@@ -222,13 +230,14 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
   // Handle Logout
   const handleLogout = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
+    setUser(null);
     setStatusMsg(null);
   };
 
-  // Seed Initial Data to Firestore
+  // Seed Initial Data to Supabase
   const handleSeedData = async () => {
-    if (!confirm('Deseja analisar e importar todos os eventos, horários e pregações do site para o banco de dados CMS (Firestore)?')) return;
+    if (!confirm('Deseja analisar e importar todos os eventos, horários e pregações do site para o banco de dados CMS (Supabase)?')) return;
     setSeedingLoading(true);
     try {
       await seedInitialFirestoreData(true);
@@ -390,8 +399,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     if (!eventForm.title || !eventForm.date) return;
     setEventUploadError(null);
 
-    if (!auth.currentUser) {
-      setEventUploadError('Usuário não autenticado no Firebase. Faça login novamente no painel.');
+    if (!user) {
+      setEventUploadError('Usuário não autenticado. Faça login novamente no painel.');
       return;
     }
 
@@ -540,7 +549,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    if (!auth.currentUser) {
+    if (!user) {
       setGalleryUploadError('Usuário não autenticado. Faça login no painel para realizar o upload.');
       e.target.value = '';
       return;
@@ -626,8 +635,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     if (!ministryForm.title) return;
     setLeaderUploadError(null);
 
-    if (!auth.currentUser) {
-      setLeaderUploadError('Usuário não autenticado no Firebase. Faça login novamente no painel.');
+    if (!user) {
+      setLeaderUploadError('Usuário não autenticado. Faça login novamente no painel.');
       return;
     }
 
@@ -997,7 +1006,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     Como criar seu usuário Admin
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Siga o passo a passo para cadastrar seu e-mail e senha no Firebase
+                    Siga o passo a passo para cadastrar seu e-mail e senha no Supabase
                   </p>
                 </div>
               </div>
@@ -1006,40 +1015,40 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-white text-sm">
                     <span className="w-5 h-5 rounded-full bg-[#102bde] text-white flex items-center justify-center text-xs">1</span>
-                    <span>Acesse o Firebase Console</span>
+                    <span>Acesse o Supabase Dashboard</span>
                   </div>
                   <p className="pl-7 text-slate-400">
-                    Entre em <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-[#102bde] underline font-bold">console.firebase.google.com</a> com sua conta Google.
+                    Entre em <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-[#102bde] underline font-bold">supabase.com/dashboard</a> com sua conta.
                   </p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-white text-sm">
                     <span className="w-5 h-5 rounded-full bg-[#102bde] text-white flex items-center justify-center text-xs">2</span>
-                    <span>Selecione o Projeto</span>
+                    <span>Selecione seu Projeto</span>
                   </div>
                   <p className="pl-7 text-slate-400">
-                    Selecione o projeto <strong className="text-white">romullogcs</strong> na sua lista de projetos.
+                    Selecione seu projeto na lista do Supabase.
                   </p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-white text-sm">
                     <span className="w-5 h-5 rounded-full bg-[#102bde] text-white flex items-center justify-center text-xs">3</span>
-                    <span>Acesse a aba de Usuários</span>
+                    <span>Acesse Authentication &gt; Users</span>
                   </div>
                   <p className="pl-7 text-slate-400">
-                    No menu lateral esquerdo, clique em <strong className="text-white">Build &gt; Authentication</strong>. Em seguida, selecione a aba <strong className="text-white">Users</strong> (Usuários).
+                    No menu lateral esquerdo, clique no ícone de <strong className="text-white">Authentication</strong> e depois na aba <strong className="text-white">Users</strong>.
                   </p>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
                   <div className="flex items-center gap-2 font-bold text-white text-sm">
                     <span className="w-5 h-5 rounded-full bg-[#102bde] text-white flex items-center justify-center text-xs">4</span>
-                    <span>Clique em "Add User" (Adicionar Usuário)</span>
+                    <span>Clique em "Add User" &gt; "Create User"</span>
                   </div>
                   <p className="pl-7 text-slate-400">
-                    Clique no botão superior <strong className="text-white">Add User</strong>. Digite o seu e-mail (ex: <code className="text-emerald-400 font-mono">romullo.IDE@gmail.com</code>) e defina uma senha.
+                    Clique em <strong className="text-white">Add User</strong>, selecione <strong className="text-white">Create User</strong>, informe o seu e-mail e defina uma senha.
                   </p>
                 </div>
 
@@ -1232,7 +1241,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               <span>Sincronização em Tempo Real</span>
             </div>
             <p className="leading-relaxed text-slate-400">
-              Quaisquer alterações feitas nesta tela são salvas diretamente no banco de dados Cloud Firestore e entram em vigor instantaneamente para todos os visitantes do site.
+              Quaisquer alterações feitas nesta tela são salvas diretamente no banco de dados Supabase e entram em vigor instantaneamente para todos os visitantes do site.
             </p>
           </div>
         </aside>

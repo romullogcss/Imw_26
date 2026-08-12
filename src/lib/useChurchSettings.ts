@@ -46,7 +46,7 @@ export function useChurchSettings() {
     try {
       await updateChurchSettings({ logoUrl: newUrl });
     } catch (err) {
-      console.warn('Could not save logo to Firestore (saved locally):', err);
+      console.warn('Could not save logo to Supabase (saved locally):', err);
     }
   };
 
