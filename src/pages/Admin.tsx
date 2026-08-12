@@ -107,6 +107,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [galleryUploadError, setGalleryUploadError] = useState<string | null>(null);
   const [newGalleryCaption, setNewGalleryCaption] = useState('');
   const [newGalleryUrl, setNewGalleryUrl] = useState('');
+  const [isSavingMinistry, setIsSavingMinistry] = useState(false);
 
   // Sermon Cover Image Upload State
   const [sermonCoverFile, setSermonCoverFile] = useState<File | null>(null);
@@ -500,16 +501,39 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
     if (item) {
       setEditingMinistry(item);
-      setMinistryForm({ ...item, gallery: item.gallery || [], activities: item.activities || [] });
+      setMinistryForm({
+        ...item,
+        title: item.title || '',
+        subtitle: item.subtitle || '',
+        ageRange: item.ageRange || '',
+        description: item.description || '',
+        detailedDescription: item.detailedDescription || '',
+        meetingTime: item.meetingTime || '',
+        meetingLocation: item.meetingLocation || '',
+        leaderName: item.leaderName || '',
+        leaderRole: item.leaderRole || '',
+        leaderPhoto: item.leaderPhoto || '',
+        leaderContact: item.leaderContact || '',
+        themeColor: item.themeColor ? { ...item.themeColor } : {
+          badge: 'bg-[#102bde] text-white',
+          bgGradient: 'from-blue-600 to-indigo-700',
+          accent: 'blue',
+          border: 'border-blue-400',
+          text: 'text-[#102bde]'
+        },
+        isPlayful: item.isPlayful ?? false,
+        activities: Array.isArray(item.activities) ? [...item.activities] : [],
+        gallery: Array.isArray(item.gallery) ? item.gallery.map((g) => ({ ...g })) : []
+      });
     } else {
       setEditingMinistry(null);
       setMinistryForm({
         id: `min_${Date.now()}`,
         title: '',
-        subtitle: 'Ministério Geral',
-        ageRange: 'Todas as idades',
-        description: 'Descrição sucinta do ministério.',
-        detailedDescription: 'Descrição completa detalhando o propósito e ações.',
+        subtitle: 'Ministério',
+        ageRange: 'Geral',
+        description: '',
+        detailedDescription: '',
         meetingTime: 'Aos sábados, 19:30',
         meetingLocation: 'Templo Principal',
         leaderName: '',
@@ -523,7 +547,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
           border: 'border-blue-400',
           text: 'text-[#102bde]'
         },
-        activities: ['Cultos Especiais', 'Reunião semanal', 'Impacto Evangelístico'],
+        activities: ['Encontros semanais', 'Impacto Evangelístico'],
         gallery: []
       });
     }
@@ -640,6 +664,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       return;
     }
 
+    setIsSavingMinistry(true);
+
     try {
       let finalLeaderPhoto = ministryForm.leaderPhoto;
 
@@ -658,17 +684,22 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         }
       }
 
+      const cleanedActivities = (ministryForm.activities || [])
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+
       const payload = {
         ...ministryForm,
+        activities: cleanedActivities,
         leaderPhoto: finalLeaderPhoto,
       };
 
       if (editingMinistry) {
         await updateMinistry(editingMinistry.id, payload);
-        setStatusMsg({ type: 'success', text: 'Ministério atualizado com sucesso!' });
+        setStatusMsg({ type: 'success', text: `Ministério "${payload.title}" atualizado com sucesso!` });
       } else {
         await addMinistry(payload);
-        setStatusMsg({ type: 'success', text: 'Novo ministério cadastrado com sucesso!' });
+        setStatusMsg({ type: 'success', text: `Novo ministério "${payload.title}" cadastrado com sucesso!` });
       }
 
       setLeaderPhotoFile(null);
@@ -677,8 +708,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     } catch (err: any) {
       console.error('Save ministry error:', err);
       setLeaderUploadError('Erro ao salvar ministério: ' + (err.message || 'Falha de conexão.'));
+      setStatusMsg({ type: 'error', text: 'Erro ao salvar ministério: ' + (err.message || 'Falha de conexão.') });
     } finally {
       setLeaderUploadProgress(null);
+      setIsSavingMinistry(false);
     }
   };
 
@@ -2526,34 +2559,114 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 )}
               </div>
 
-              <div>
-                <label className="block font-bold uppercase text-slate-700 mb-1">Descrição Curta</label>
-                <textarea
-                  rows={2}
-                  value={ministryForm.description}
-                  onChange={(e) => setMinistryForm({ ...ministryForm, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:border-[#102bde]"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Descrição Curta</label>
+                  <textarea
+                    rows={3}
+                    value={ministryForm.description}
+                    onChange={(e) => setMinistryForm({ ...ministryForm, description: e.target.value })}
+                    placeholder="Descrição resumida exibida nos cartões..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Descrição Detalhada / Propósito</label>
+                  <textarea
+                    rows={3}
+                    value={ministryForm.detailedDescription}
+                    onChange={(e) => setMinistryForm({ ...ministryForm, detailedDescription: e.target.value })}
+                    placeholder="Descrição completa exibida na página do ministério..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              {/* PRINCIPAIS ATIVIDADES */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-xs uppercase text-[#102bde] block">
+                    Principais Atividades
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMinistryForm((prev) => ({
+                        ...prev,
+                        activities: [...prev.activities, ''],
+                      }))
+                    }
+                    className="px-2.5 py-1 rounded-lg bg-[#102bde] hover:bg-[#0d23b8] text-white text-[11px] font-bold uppercase flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Atividade</span>
+                  </button>
+                </div>
+
+                {ministryForm.activities.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 italic">Nenhuma atividade cadastrada. Clique no botão acima para adicionar.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {ministryForm.activities.map((act, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={act}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMinistryForm((prev) => {
+                              const nextAct = [...prev.activities];
+                              nextAct[idx] = val;
+                              return { ...prev, activities: nextAct };
+                            });
+                          }}
+                          placeholder="ex: Reunião de Oração Semanal"
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMinistryForm((prev) => ({
+                              ...prev,
+                              activities: prev.activities.filter((_, i) => i !== idx),
+                            }))
+                          }
+                          className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 cursor-pointer"
+                          title="Remover atividade"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setMinistryModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase cursor-pointer"
+                  disabled={isSavingMinistry}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase cursor-pointer disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={leaderUploadProgress !== null || galleryUploadProgress !== null}
+                  disabled={isSavingMinistry || leaderUploadProgress !== null || galleryUploadProgress !== null}
                   className={`px-5 py-2.5 rounded-xl font-black uppercase tracking-wider shadow-md flex items-center gap-2 transition-all ${
-                    leaderUploadProgress !== null || galleryUploadProgress !== null
+                    isSavingMinistry || leaderUploadProgress !== null || galleryUploadProgress !== null
                       ? 'bg-slate-400 text-white cursor-not-allowed'
                       : 'bg-[#102bde] hover:bg-[#0d23b8] text-white cursor-pointer'
                   }`}
                 >
-                  {leaderUploadProgress !== null ? (
+                  {isSavingMinistry ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : leaderUploadProgress !== null ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Enviando Líder ({leaderUploadProgress}%)...</span>

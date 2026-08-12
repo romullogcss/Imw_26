@@ -145,8 +145,8 @@ function mapMinistry(row: any): Ministry {
       text: 'text-slate-800'
     },
     isPlayful: row.is_playful ?? row.isPlayful ?? false,
-    gallery: row.gallery || [],
-    activities: row.activities || [],
+    gallery: Array.isArray(row.gallery) ? row.gallery : [],
+    activities: Array.isArray(row.activities) ? row.activities : [],
   };
 }
 
@@ -155,17 +155,38 @@ function mapMinistryToDbPayload(data: Record<string, any>): Record<string, any> 
   if (data.id !== undefined) payload.id = data.id;
   if (data.title !== undefined) payload.title = data.title;
   if (data.subtitle !== undefined) payload.subtitle = data.subtitle;
-  if (data.ageRange !== undefined) payload.age_range = data.ageRange;
+
+  if (data.ageRange !== undefined || data.age_range !== undefined) {
+    payload.age_range = data.ageRange ?? data.age_range ?? '';
+  }
   if (data.description !== undefined) payload.description = data.description;
-  if (data.detailedDescription !== undefined) payload.detailed_description = data.detailedDescription;
-  if (data.meetingTime !== undefined) payload.meeting_time = data.meetingTime;
-  if (data.meetingLocation !== undefined) payload.meeting_location = data.meetingLocation;
-  if (data.leaderName !== undefined) payload.leader_name = data.leaderName;
-  if (data.leaderRole !== undefined) payload.leader_role = data.leaderRole;
-  if (data.leaderPhoto !== undefined) payload.leader_photo = data.leaderPhoto;
-  if (data.leaderContact !== undefined) payload.leader_contact = data.leaderContact;
-  if (data.themeColor !== undefined) payload.theme_color = data.themeColor;
-  if (data.isPlayful !== undefined) payload.is_playful = data.isPlayful;
+  if (data.detailedDescription !== undefined || data.detailed_description !== undefined) {
+    payload.detailed_description = data.detailedDescription ?? data.detailed_description ?? '';
+  }
+  if (data.meetingTime !== undefined || data.meeting_time !== undefined) {
+    payload.meeting_time = data.meetingTime ?? data.meeting_time ?? '';
+  }
+  if (data.meetingLocation !== undefined || data.meeting_location !== undefined) {
+    payload.meeting_location = data.meetingLocation ?? data.meeting_location ?? '';
+  }
+  if (data.leaderName !== undefined || data.leader_name !== undefined) {
+    payload.leader_name = data.leaderName ?? data.leader_name ?? '';
+  }
+  if (data.leaderRole !== undefined || data.leader_role !== undefined) {
+    payload.leader_role = data.leaderRole ?? data.leader_role ?? '';
+  }
+  if (data.leaderPhoto !== undefined || data.leader_photo !== undefined) {
+    payload.leader_photo = data.leaderPhoto ?? data.leader_photo ?? '';
+  }
+  if (data.leaderContact !== undefined || data.leader_contact !== undefined) {
+    payload.leader_contact = data.leaderContact ?? data.leader_contact ?? '';
+  }
+  if (data.themeColor !== undefined || data.theme_color !== undefined) {
+    payload.theme_color = data.themeColor ?? data.theme_color;
+  }
+  if (data.isPlayful !== undefined || data.is_playful !== undefined) {
+    payload.is_playful = data.isPlayful ?? data.is_playful ?? false;
+  }
   if (data.gallery !== undefined) payload.gallery = data.gallery;
   if (data.activities !== undefined) payload.activities = data.activities;
   return payload;
@@ -545,14 +566,19 @@ async function fetchAndNotifyMinistries() {
   try {
     const { data, error } = await supabase
       .from('ministries')
-      .select('*');
+      .select('*')
+      .order('title', { ascending: true });
 
     let items: Ministry[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar ministries:', error.message);
-      items = MINISTRIES_DATA;
+      items = MINISTRIES_DATA.map(mapMinistry).sort((a, b) =>
+        a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' })
+      );
     } else if (data && data.length > 0) {
-      items = data.map(mapMinistry);
+      items = data
+        .map(mapMinistry)
+        .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' }));
     } else {
       items = [];
     }
@@ -560,7 +586,10 @@ async function fetchAndNotifyMinistries() {
     ministryListeners.forEach((cb) => cb(items));
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar ministries:', err);
-    ministryListeners.forEach((cb) => cb(MINISTRIES_DATA));
+    const fallback = MINISTRIES_DATA.map(mapMinistry).sort((a, b) =>
+      a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' })
+    );
+    ministryListeners.forEach((cb) => cb(fallback));
   }
 }
 
