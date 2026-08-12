@@ -11,7 +11,7 @@ import {
 export { extractYoutubeId };
 
 // -------------------------------------------------------------
-// HELPER MAPPERS (CAMELCASE / SNAKE_CASE COMPATIBILITY)
+// HELPER MAPPERS (CAMELCASE <-> SNAKE_CASE COMPATIBILITY)
 // -------------------------------------------------------------
 
 function mapSchedule(row: any): ScheduleItem {
@@ -27,6 +27,19 @@ function mapSchedule(row: any): ScheduleItem {
   };
 }
 
+function mapScheduleToDbPayload(data: Partial<ScheduleItem>): Record<string, any> {
+  const payload: Record<string, any> = {};
+  if (data.id !== undefined) payload.id = data.id;
+  if (data.day !== undefined) payload.day = data.day;
+  if (data.time !== undefined) payload.time = data.time;
+  if (data.title !== undefined) payload.title = data.title;
+  if (data.description !== undefined) payload.description = data.description;
+  if (data.location !== undefined) payload.location = data.location;
+  if (data.category !== undefined) payload.category = data.category;
+  if (data.isHighlight !== undefined) payload.is_highlight = data.isHighlight;
+  return payload;
+}
+
 function mapEvent(row: any): ChurchEvent {
   return {
     id: String(row.id),
@@ -39,6 +52,20 @@ function mapEvent(row: any): ChurchEvent {
     badge: row.badge || '',
     isFeatured: row.is_featured ?? row.isFeatured ?? false,
   };
+}
+
+function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
+  const payload: Record<string, any> = {};
+  if (data.id !== undefined) payload.id = data.id;
+  if (data.title !== undefined) payload.title = data.title;
+  if (data.date !== undefined) payload.date = data.date;
+  if (data.time !== undefined) payload.time = data.time;
+  if (data.location !== undefined) payload.location = data.location;
+  if (data.description !== undefined) payload.description = data.description;
+  if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
+  if (data.badge !== undefined) payload.badge = data.badge;
+  if (data.isFeatured !== undefined) payload.is_featured = data.isFeatured;
+  return payload;
 }
 
 function mapSermon(row: any): Sermon {
@@ -67,6 +94,35 @@ function mapSermon(row: any): Sermon {
   };
 }
 
+function mapSermonToDbPayload(data: Partial<Sermon>): Record<string, any> {
+  const payload: Record<string, any> = {};
+  if (data.id !== undefined) payload.id = data.id;
+  if (data.title !== undefined) payload.title = data.title;
+  if (data.preacher !== undefined) payload.preacher = data.preacher;
+  if (data.date !== undefined) payload.date = data.date;
+  if (data.duration !== undefined) payload.duration = data.duration;
+  if (data.scripture !== undefined) payload.scripture = data.scripture;
+  if (data.category !== undefined) payload.category = data.category;
+  if (data.summary !== undefined) payload.summary = data.summary;
+
+  if (data.youtubeUrl || data.youtubeId) {
+    const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
+    payload.youtube_id = ytId;
+    payload.embed_url = getYoutubeEmbedUrl(ytId);
+    payload.youtube_url = data.youtubeUrl || getYoutubeWatchUrl(ytId);
+    if (!data.thumbnail && !data.imageUrl) {
+      payload.thumbnail = getYoutubeThumbnailUrl(ytId);
+      payload.image_url = payload.thumbnail;
+    }
+  }
+
+  if (data.thumbnail !== undefined) payload.thumbnail = data.thumbnail;
+  if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
+  if (data.imagePath !== undefined) payload.image_path = data.imagePath;
+
+  return payload;
+}
+
 function mapMinistry(row: any): Ministry {
   return {
     id: row.id,
@@ -92,6 +148,27 @@ function mapMinistry(row: any): Ministry {
     gallery: row.gallery || [],
     activities: row.activities || [],
   };
+}
+
+function mapMinistryToDbPayload(data: Record<string, any>): Record<string, any> {
+  const payload: Record<string, any> = {};
+  if (data.id !== undefined) payload.id = data.id;
+  if (data.title !== undefined) payload.title = data.title;
+  if (data.subtitle !== undefined) payload.subtitle = data.subtitle;
+  if (data.ageRange !== undefined) payload.age_range = data.ageRange;
+  if (data.description !== undefined) payload.description = data.description;
+  if (data.detailedDescription !== undefined) payload.detailed_description = data.detailedDescription;
+  if (data.meetingTime !== undefined) payload.meeting_time = data.meetingTime;
+  if (data.meetingLocation !== undefined) payload.meeting_location = data.meetingLocation;
+  if (data.leaderName !== undefined) payload.leader_name = data.leaderName;
+  if (data.leaderRole !== undefined) payload.leader_role = data.leaderRole;
+  if (data.leaderPhoto !== undefined) payload.leader_photo = data.leaderPhoto;
+  if (data.leaderContact !== undefined) payload.leader_contact = data.leaderContact;
+  if (data.themeColor !== undefined) payload.theme_color = data.themeColor;
+  if (data.isPlayful !== undefined) payload.is_playful = data.isPlayful;
+  if (data.gallery !== undefined) payload.gallery = data.gallery;
+  if (data.activities !== undefined) payload.activities = data.activities;
+  return payload;
 }
 
 export interface ChurchSettingsData {
@@ -173,17 +250,10 @@ export function subscribeSchedules(callback: (items: ScheduleItem[]) => void) {
 
 export async function addSchedule(data: Omit<ScheduleItem, 'id'>) {
   const newId = `sched_${Date.now()}`;
-  const payload = {
-    id: newId,
-    day: data.day,
-    time: data.time,
-    title: data.title,
-    description: data.description || '',
-    location: data.location || '',
-    category: data.category,
-    is_highlight: data.isHighlight || false,
-    created_at: new Date().toISOString(),
-  };
+  const payload = mapScheduleToDbPayload(data);
+  payload.id = newId;
+  payload.created_at = new Date().toISOString();
+  payload.updated_at = new Date().toISOString();
 
   const { data: inserted, error } = await supabase
     .from('schedules')
@@ -201,8 +271,7 @@ export async function addSchedule(data: Omit<ScheduleItem, 'id'>) {
 }
 
 export async function updateSchedule(id: string, data: Partial<ScheduleItem>) {
-  const payload: any = { ...data };
-  if (data.isHighlight !== undefined) payload.is_highlight = data.isHighlight;
+  const payload = mapScheduleToDbPayload(data);
   payload.updated_at = new Date().toISOString();
 
   const { data: updated, error } = await supabase
@@ -296,18 +365,10 @@ export function subscribeEvents(callback: (items: ChurchEvent[]) => void) {
 
 export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
   const newId = `evt_${Date.now()}`;
-  const payload = {
-    id: newId,
-    title: data.title,
-    date: data.date,
-    time: data.time,
-    location: data.location,
-    description: data.description,
-    image_url: data.imageUrl || '',
-    badge: data.badge || '',
-    is_featured: data.isFeatured || false,
-    created_at: new Date().toISOString(),
-  };
+  const payload = mapEventToDbPayload(data);
+  payload.id = newId;
+  payload.created_at = new Date().toISOString();
+  payload.updated_at = new Date().toISOString();
 
   const { data: inserted, error } = await supabase
     .from('events')
@@ -325,9 +386,7 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
 }
 
 export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
-  const payload: any = { ...data };
-  if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
-  if (data.isFeatured !== undefined) payload.is_featured = data.isFeatured;
+  const payload = mapEventToDbPayload(data);
   payload.updated_at = new Date().toISOString();
 
   const { data: updated, error } = await supabase
@@ -421,30 +480,10 @@ export function subscribeSermons(callback: (items: Sermon[]) => void) {
 
 export async function addSermon(data: Omit<Sermon, 'id'>) {
   const newId = `sermon_${Date.now()}`;
-  const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
-  const embedUrl = getYoutubeEmbedUrl(ytId);
-  const watchUrl = data.youtubeUrl || getYoutubeWatchUrl(ytId);
-  const thumbnail = data.thumbnail?.trim() || data.imageUrl?.trim() || getYoutubeThumbnailUrl(ytId);
-  const imageUrl = data.imageUrl?.trim() || thumbnail;
-  const imagePath = data.imagePath?.trim() || '';
-
-  const payload = {
-    id: newId,
-    title: data.title,
-    preacher: data.preacher,
-    date: data.date,
-    youtube_id: ytId,
-    youtube_url: watchUrl,
-    embed_url: embedUrl,
-    duration: data.duration,
-    scripture: data.scripture,
-    category: data.category,
-    thumbnail: thumbnail,
-    image_url: imageUrl,
-    image_path: imagePath,
-    summary: data.summary || '',
-    created_at: new Date().toISOString(),
-  };
+  const payload = mapSermonToDbPayload(data);
+  payload.id = newId;
+  payload.created_at = new Date().toISOString();
+  payload.updated_at = new Date().toISOString();
 
   const { data: inserted, error } = await supabase
     .from('sermons')
@@ -458,23 +497,11 @@ export async function addSermon(data: Omit<Sermon, 'id'>) {
   }
 
   fetchAndNotifySermons();
-  return inserted ? mapSermon(inserted) : { id: newId, ...data, youtubeId: ytId, embedUrl, youtubeUrl: watchUrl, thumbnail, imageUrl, imagePath };
+  return inserted ? mapSermon(inserted) : { id: newId, ...data };
 }
 
 export async function updateSermon(id: string, data: Partial<Sermon>) {
-  let payload: any = { ...data };
-  if (data.youtubeUrl || data.youtubeId) {
-    const ytId = extractYoutubeId(data.youtubeUrl || data.youtubeId || '') || '';
-    payload.youtube_id = ytId;
-    payload.embed_url = getYoutubeEmbedUrl(ytId);
-    payload.youtube_url = data.youtubeUrl || getYoutubeWatchUrl(ytId);
-    if (!data.thumbnail && !data.imageUrl) {
-      payload.thumbnail = getYoutubeThumbnailUrl(ytId);
-      payload.image_url = payload.thumbnail;
-    }
-  }
-  if (data.imageUrl) payload.image_url = data.imageUrl;
-  if (data.imagePath) payload.image_path = data.imagePath;
+  const payload = mapSermonToDbPayload(data);
   payload.updated_at = new Date().toISOString();
 
   const { data: updated, error } = await supabase
@@ -568,25 +595,10 @@ export function subscribeMinistries(callback: (items: Ministry[]) => void) {
 
 export async function addMinistry(data: Omit<Ministry, 'id'> & { id?: string }) {
   const ministryId = data.id || `m_${Date.now()}`;
-  const payload = {
-    id: ministryId,
-    title: data.title,
-    subtitle: data.subtitle,
-    age_range: data.ageRange,
-    description: data.description,
-    detailed_description: data.detailedDescription,
-    meeting_time: data.meetingTime,
-    meeting_location: data.meetingLocation,
-    leader_name: data.leaderName,
-    leader_role: data.leaderRole,
-    leader_photo: data.leaderPhoto,
-    leader_contact: data.leaderContact,
-    theme_color: data.themeColor,
-    is_playful: data.isPlayful || false,
-    gallery: data.gallery || [],
-    activities: data.activities || [],
-    created_at: new Date().toISOString(),
-  };
+  const payload = mapMinistryToDbPayload(data);
+  payload.id = ministryId;
+  payload.created_at = new Date().toISOString();
+  payload.updated_at = new Date().toISOString();
 
   const { data: inserted, error } = await supabase
     .from('ministries')
@@ -604,17 +616,7 @@ export async function addMinistry(data: Omit<Ministry, 'id'> & { id?: string }) 
 }
 
 export async function updateMinistry(id: string, data: Partial<Ministry>) {
-  const payload: any = { ...data };
-  if (data.ageRange !== undefined) payload.age_range = data.ageRange;
-  if (data.detailedDescription !== undefined) payload.detailed_description = data.detailedDescription;
-  if (data.meetingTime !== undefined) payload.meeting_time = data.meetingTime;
-  if (data.meetingLocation !== undefined) payload.meeting_location = data.meetingLocation;
-  if (data.leaderName !== undefined) payload.leader_name = data.leaderName;
-  if (data.leaderRole !== undefined) payload.leader_role = data.leaderRole;
-  if (data.leaderPhoto !== undefined) payload.leader_photo = data.leaderPhoto;
-  if (data.leaderContact !== undefined) payload.leader_contact = data.leaderContact;
-  if (data.themeColor !== undefined) payload.theme_color = data.themeColor;
-  if (data.isPlayful !== undefined) payload.is_playful = data.isPlayful;
+  const payload = mapMinistryToDbPayload(data);
   payload.updated_at = new Date().toISOString();
 
   const { data: updated, error } = await supabase
