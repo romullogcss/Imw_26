@@ -68,6 +68,87 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   return payload;
 }
 
+const PORTUGUESE_MONTHS: Record<string, number> = {
+  jan: 0, janeiro: 0,
+  fev: 1, fevereiro: 1,
+  mar: 2, marco: 2, março: 2,
+  abr: 3, abril: 3,
+  mai: 4, maio: 4,
+  jun: 5, junho: 5,
+  jul: 6, julho: 6,
+  ago: 7, agosto: 7,
+  set: 8, setembro: 8,
+  out: 9, outubro: 9,
+  nov: 10, novembro: 10,
+  dez: 11, dezembro: 11,
+};
+
+export function parseSermonDate(dateStr?: string, fallbackDateStr?: string): number {
+  if (!dateStr || !dateStr.trim()) {
+    if (fallbackDateStr) {
+      const fb = Date.parse(fallbackDateStr);
+      if (!isNaN(fb)) return fb;
+    }
+    return 0;
+  }
+
+  const str = dateStr.trim().toLowerCase();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const parsed = Date.parse(str);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  const brMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (brMatch) {
+    const day = parseInt(brMatch[1], 10);
+    const month = parseInt(brMatch[2], 10) - 1;
+    let year = parseInt(brMatch[3], 10);
+    if (year < 100) year += 2000;
+    const d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+
+  const ptMatch = str.match(/^(\d{1,2})\s+(?:de\s+)?([a-zçáéíóúãõ]+)(?:\s+de|\s*,)?\s+(\d{4})/i);
+  if (ptMatch) {
+    const day = parseInt(ptMatch[1], 10);
+    const monthName = ptMatch[2].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const year = parseInt(ptMatch[3], 10);
+    const month = PORTUGUESE_MONTHS[monthName];
+    if (month !== undefined) {
+      const d = new Date(year, month, day);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+  }
+
+  const standard = Date.parse(str);
+  if (!isNaN(standard)) return standard;
+
+  if (fallbackDateStr) {
+    const fb = Date.parse(fallbackDateStr);
+    if (!isNaN(fb)) return fb;
+  }
+
+  return 0;
+}
+
+export function sortSermonsByDateDesc(a: Sermon, b: Sermon): number {
+  const timeA = parseSermonDate(a.date, a.createdAt);
+  const timeB = parseSermonDate(b.date, b.createdAt);
+
+  if (timeB !== timeA) {
+    return timeB - timeA;
+  }
+
+  const createdA = a.createdAt ? Date.parse(a.createdAt) : 0;
+  const createdB = b.createdAt ? Date.parse(b.createdAt) : 0;
+  if (createdB !== createdA) {
+    return createdB - createdA;
+  }
+
+  return b.id.localeCompare(a.id);
+}
+
 function mapSermon(row: any): Sermon {
   const ytId = extractYoutubeId(row.youtube_url || row.youtubeUrl || row.youtube_id || row.youtubeId || '') || '';
   const embedUrl = row.embed_url || row.embedUrl || (ytId ? getYoutubeEmbedUrl(ytId) : '');
@@ -91,6 +172,7 @@ function mapSermon(row: any): Sermon {
     imageUrl: imageUrl,
     imagePath: imagePath,
     summary: row.summary || '',
+    createdAt: row.created_at || row.createdAt || '',
   };
 }
 
@@ -451,14 +533,15 @@ async function fetchAndNotifySermons() {
   try {
     const { data, error } = await supabase
       .from('sermons')
-      .select('*');
+      .select('*')
+      .order('created_at', { ascending: false });
 
     let items: Sermon[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar sermons:', error.message);
-      items = SERMONS_YOUTUBE;
+      items = [...SERMONS_YOUTUBE].sort(sortSermonsByDateDesc);
     } else if (data && data.length > 0) {
-      items = data.map(mapSermon);
+      items = data.map(mapSermon).sort(sortSermonsByDateDesc);
     } else {
       items = [];
     }
@@ -466,7 +549,7 @@ async function fetchAndNotifySermons() {
     sermonListeners.forEach((cb) => cb(items));
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar sermons:', err);
-    sermonListeners.forEach((cb) => cb(SERMONS_YOUTUBE));
+    sermonListeners.forEach((cb) => cb([...SERMONS_YOUTUBE].sort(sortSermonsByDateDesc)));
   }
 }
 

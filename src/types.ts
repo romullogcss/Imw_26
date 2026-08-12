@@ -85,6 +85,7 @@ export interface Sermon {
   imageUrl?: string;
   imagePath?: string;
   summary?: string;
+  createdAt?: string;
 }
 
 export interface ArticleOfFaith {
