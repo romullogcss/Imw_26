@@ -192,7 +192,7 @@ export const PASTORS_AND_LEADERS: Leader[] = [
     name: 'Pr. Gessivaldo & Miss. Eugênia',
     role: 'Pastores da IMW Cosmópolis',
     bio: 'À frente da IMW Cosmópolis, com dedicação ao ensino da Palavra, pastoreio de famílias e fortalecimento do compromisso missionário da igreja.',
-    photoUrl: '/foto-pastor-gessivaldo-e-missionaria-eugenia.png',
+    photoUrl: '/foto-pastor-pregando.png',
     verse: 'Combati o bom combate, acabei a carreira, guardei a fé. (2 Timóteo 4:7)',
     email: 'gessivaldo.reboucas@imwcosmopolis.com.br',
   },
