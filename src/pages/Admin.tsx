@@ -2790,7 +2790,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                                 )}
                               </td>
                               <td className="py-3 px-4 text-slate-500">
-                                {new Date(inv.created_at).toLocaleDateString('pt-BR')}
+                                {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('pt-BR') : '—'}
                               </td>
                               <td className="py-3 px-4 text-center whitespace-nowrap">
                                 <div className="inline-flex items-center gap-2">

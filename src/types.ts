@@ -134,4 +134,5 @@ export interface DashboardInvite {
   expiresAt: string;
   acceptedAt?: string | null;
   createdAt?: string;
+  status: 'pending' | 'accepted' | 'expired';
 }

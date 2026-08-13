@@ -1280,16 +1280,49 @@ function saveLocalInvites(invites: DashboardInvite[]): void {
   }
 }
 
+export function getInviteStatus(params: {
+  acceptedAt?: string | null;
+  accepted_at?: string | null;
+  expiresAt?: string | null;
+  expires_at?: string | null;
+  status?: string | null;
+}): 'pending' | 'accepted' | 'expired' {
+  const accepted = params.acceptedAt || params.accepted_at;
+  if (accepted || params.status === 'accepted') {
+    return 'accepted';
+  }
+
+  const expires = params.expiresAt || params.expires_at;
+  if (expires) {
+    const expireTime = new Date(expires).getTime();
+    if (!isNaN(expireTime) && expireTime <= Date.now()) {
+      return 'expired';
+    }
+  }
+
+  if (params.status === 'expired') {
+    return 'expired';
+  }
+
+  return 'pending';
+}
+
 function mapInvite(row: any): DashboardInvite {
+  const expiresAt = row.expires_at || row.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const acceptedAt = row.accepted_at || row.acceptedAt || null;
+  const createdAt = row.created_at || row.createdAt || new Date().toISOString();
+  const status = getInviteStatus({ acceptedAt, expiresAt, status: row.status });
+
   return {
     id: String(row.id),
     email: row.email || '',
     role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'media',
     token: row.token || '',
     invitedBy: row.invited_by || row.invitedBy || null,
-    expiresAt: row.expires_at || row.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    acceptedAt: row.accepted_at || row.acceptedAt || null,
-    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    expiresAt,
+    acceptedAt,
+    createdAt,
+    status,
   };
 }
 
@@ -1299,35 +1332,56 @@ export async function createDashboardInvite(email: string, role: UserRole, invit
     ? crypto.randomUUID().replace(/-/g, '') + Math.random().toString(36).substring(2, 10)
     : Math.random().toString(36).substring(2) + Date.now().toString(36);
 
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const nowMs = Date.now();
+  const createdAt = new Date(nowMs).toISOString();
+  // Convite válido por 7 dias em tempo real UTC
+  const expiresAt = new Date(nowMs + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Validar formato UUID do autor do convite para garantir integridade com PostgreSQL
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const validInvitedBy = invitedByUserId && uuidRegex.test(invitedByUserId) ? invitedByUserId : null;
+
   const newInvite: DashboardInvite = {
-    id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    id: `inv_${nowMs}_${Math.random().toString(36).substring(2, 6)}`,
     email: cleanEmail,
     role,
     token,
-    invitedBy: invitedByUserId || null,
+    invitedBy: validInvitedBy,
     expiresAt,
     acceptedAt: null,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    status: 'pending',
   };
 
   const local = getLocalInvites();
-  local.unshift(newInvite);
-  saveLocalInvites(local);
+  const filteredLocal = local.filter((i) => i.token !== token);
+  filteredLocal.unshift(newInvite);
+  saveLocalInvites(filteredLocal);
 
   try {
-    const payload = {
+    const payload: any = {
       email: cleanEmail,
       role,
       token,
-      invited_by: invitedByUserId || null,
+      invited_by: validInvitedBy,
       expires_at: expiresAt,
+      created_at: createdAt,
     };
 
-    const { data, error } = await supabase.from('invites').insert([payload]).select('*').single();
+    let { data, error } = await supabase.from('invites').insert([payload]).select('*').single();
+
+    // Caso a chave estrangeira em invited_by falhe (ex: usuário autor não sincronizado no auth.users), tenta com NULL
+    if (error && (error.code === '23503' || error.message?.includes('invited_by') || error.message?.includes('foreign key'))) {
+      console.warn('[Supabase] Chave de autor inválida, tentando re-inserir convite com invited_by NULL...');
+      payload.invited_by = null;
+      const retry = await supabase.from('invites').insert([payload]).select('*').single();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (!error && data) {
       const dbInvite = mapInvite(data);
-      const updatedLocal = local.map((inv) => (inv.token === token ? dbInvite : inv));
+      const updatedLocal = filteredLocal.map((inv) => (inv.token === token ? dbInvite : inv));
       saveLocalInvites(updatedLocal);
       return dbInvite;
     } else if (error) {
@@ -1349,14 +1403,25 @@ export async function getDashboardInvites(): Promise<DashboardInvite[]> {
 
     if (!error && data) {
       const mapped = data.map(mapInvite);
-      saveLocalInvites(mapped);
-      return mapped;
+      // Mesclar dados do banco com o armazenamento local para prevenir perda de convites locais pendentes
+      const local = getLocalInvites().map(mapInvite);
+      const dbTokens = new Set(mapped.map((i) => i.token));
+      const dbIds = new Set(mapped.map((i) => i.id));
+
+      const localOnly = local.filter((l) => !dbTokens.has(l.token) && !dbIds.has(l.id));
+      const combined = [...mapped, ...localOnly];
+
+      saveLocalInvites(combined);
+      return combined;
+    } else if (error) {
+      console.warn('[Supabase] Erro ao buscar convites do banco:', error.message);
     }
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar convites:', err);
   }
 
-  return getLocalInvites();
+  const local = getLocalInvites();
+  return local.map(mapInvite);
 }
 
 export async function deleteDashboardInvite(inviteId: string): Promise<void> {
@@ -1385,10 +1450,10 @@ export async function getInviteByToken(token: string): Promise<DashboardInvite |
 
     if (!error && data) {
       const invite = mapInvite(data);
-      if (invite.acceptedAt) {
+      if (invite.status === 'accepted') {
         return null; // Já aceito
       }
-      if (new Date(invite.expiresAt).getTime() < Date.now()) {
+      if (invite.status === 'expired') {
         return null; // Expirado
       }
       return invite;
@@ -1400,8 +1465,11 @@ export async function getInviteByToken(token: string): Promise<DashboardInvite |
   // Fallback local check
   const local = getLocalInvites();
   const found = local.find((i) => i.token === token.trim());
-  if (found && !found.acceptedAt && new Date(found.expiresAt).getTime() > Date.now()) {
-    return found;
+  if (found) {
+    const mapped = mapInvite(found);
+    if (mapped.status === 'pending') {
+      return mapped;
+    }
   }
 
   return null;
@@ -1480,13 +1548,14 @@ export async function acceptDashboardInvite(
 
 async function markInviteAccepted(token: string): Promise<void> {
   const local = getLocalInvites();
-  const updatedLocal = local.map((i) => (i.token === token ? { ...i, acceptedAt: new Date().toISOString() } : i));
+  const nowIso = new Date().toISOString();
+  const updatedLocal = local.map((i) => (i.token === token ? { ...i, acceptedAt: nowIso, status: 'accepted' as const } : i));
   saveLocalInvites(updatedLocal);
 
   try {
     await supabase
       .from('invites')
-      .update({ accepted_at: new Date().toISOString() })
+      .update({ accepted_at: nowIso })
       .eq('token', token);
   } catch (err) {
     console.warn('[Supabase] Exceção ao marcar convite como aceito:', err);
