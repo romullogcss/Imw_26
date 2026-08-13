@@ -174,6 +174,16 @@ export const CHURCH_INFO = {
     youtube: 'https://www.youtube.com/imwcosmopolis',
     spotify: 'https://open.spotify.com/show/0axmDAHLlBF1rDWvhMkrUA?si=8af466b30f7c44a9',
   },
+  pix: {
+    key: '12.345.678/0001-90',
+    keyType: 'CNPJ',
+    favoredName: 'Igreja Metodista Wesleyana de Cosmópolis',
+    cnpj: '12.345.678/0001-90',
+    bankName: 'Banco Bradesco S.A. (237)',
+    agency: '1234-5',
+    account: '56789-0',
+    qrCodeUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020126580014br.gov.bcb.pix013612345678000190520400005303986540510.005802BR5925Igreja%20Metodista%20Wesleyana6009Cosmopolis62070503***6304E2CA',
+  },
 };
 
 export const PASTORS_AND_LEADERS: Leader[] = [

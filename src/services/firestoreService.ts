@@ -1126,10 +1126,18 @@ function saveLocalProfiles(profiles: UserProfile[]): void {
 }
 
 function mapProfile(row: any): UserProfile {
+  const rawName = row.full_name || row.fullName || row.name || '';
+  const fallbackName = row.email
+    ? row.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+    : 'Usuário';
+  const resolvedName = rawName.trim() || fallbackName;
+
   return {
     id: String(row.id),
     email: row.email || '',
     role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'media',
+    fullName: resolvedName,
+    full_name: resolvedName,
     invitedBy: row.invited_by || row.invitedBy || null,
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
@@ -1180,10 +1188,13 @@ export async function getUserProfile(userId: string, email?: string): Promise<Us
       // ignore
     }
 
+    const defaultName = email ? email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : 'Usuário';
     const newProfile: UserProfile = {
       id: userId,
       email: email || '',
       role: assignedRole,
+      fullName: defaultName,
+      full_name: defaultName,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1197,10 +1208,12 @@ export async function getUserProfile(userId: string, email?: string): Promise<Us
 export async function upsertUserProfile(profile: UserProfile): Promise<UserProfile> {
   const local = getLocalProfiles();
   const index = local.findIndex((p) => p.id === profile.id);
+  const updatedName = profile.fullName || profile.full_name || '';
+
   if (index >= 0) {
-    local[index] = { ...local[index], ...profile, updatedAt: new Date().toISOString() };
+    local[index] = { ...local[index], ...profile, fullName: updatedName, full_name: updatedName, updatedAt: new Date().toISOString() };
   } else {
-    local.unshift(profile);
+    local.unshift({ ...profile, fullName: updatedName, full_name: updatedName });
   }
   saveLocalProfiles(local);
 
@@ -1208,6 +1221,7 @@ export async function upsertUserProfile(profile: UserProfile): Promise<UserProfi
     const payload = {
       id: profile.id,
       email: profile.email,
+      full_name: updatedName || null,
       role: profile.role,
       invited_by: profile.invitedBy || null,
       updated_at: new Date().toISOString(),
@@ -1243,22 +1257,77 @@ export async function getAllUserProfiles(): Promise<UserProfile[]> {
 }
 
 export async function updateUserRole(userId: string, newRole: UserRole): Promise<void> {
-  const local = getLocalProfiles();
-  const updated = local.map((p) => (p.id === userId ? { ...p, role: newRole, updatedAt: new Date().toISOString() } : p));
-  saveLocalProfiles(updated);
+  await updateUserByAdmin(userId, { role: newRole });
+}
 
+export async function updateUserByAdmin(
+  userId: string,
+  params: { fullName?: string; role?: UserRole; email?: string }
+): Promise<UserProfile> {
+  const cleanName = params.fullName?.trim();
+  const cleanEmail = params.email?.trim().toLowerCase();
+  const newRole = params.role;
+
+  // 1. Atualizar em cache local
+  const local = getLocalProfiles();
+  const index = local.findIndex((p) => p.id === userId);
+  let updatedLocalProfile: UserProfile | null = null;
+
+  if (index >= 0) {
+    local[index] = {
+      ...local[index],
+      ...(cleanName ? { fullName: cleanName, full_name: cleanName } : {}),
+      ...(newRole ? { role: newRole } : {}),
+      ...(cleanEmail ? { email: cleanEmail } : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    updatedLocalProfile = local[index];
+  }
+  saveLocalProfiles(local);
+
+  // 2. Executar RPC no Supabase (com verificação de admin no backend)
   try {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole, updated_at: new Date().toISOString() })
-      .eq('id', userId);
+    const { data, error } = await supabase.rpc('update_user_by_admin', {
+      target_user_id: userId,
+      new_full_name: cleanName || null,
+      new_role: newRole || null,
+      new_email: cleanEmail || null,
+    });
 
     if (error) {
-      console.warn('[Supabase] Aviso ao alterar cargo do usuário:', error.message);
+      console.warn('[Supabase] RPC update_user_by_admin falhou, aplicando fallback direto em profiles:', error.message);
+      
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (cleanName) updateData.full_name = cleanName;
+      if (newRole) updateData.role = newRole;
+      if (cleanEmail) updateData.email = cleanEmail;
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId);
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+    } else if (data) {
+      return mapProfile(data);
     }
-  } catch (err) {
-    console.warn('[Supabase] Exceção ao alterar cargo do usuário:', err);
+  } catch (err: any) {
+    console.warn('[Supabase] Exceção ao atualizar perfil do usuário:', err);
+    throw err;
   }
+
+  if (updatedLocalProfile) return updatedLocalProfile;
+
+  return {
+    id: userId,
+    email: cleanEmail || '',
+    role: newRole || 'media',
+    fullName: cleanName || 'Usuário',
+    full_name: cleanName || 'Usuário',
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export async function deleteUserProfile(userId: string): Promise<void> {
@@ -1507,13 +1576,18 @@ export async function acceptDashboardInvite(
   password: string,
   fullName?: string
 ): Promise<{ user: any; profile: UserProfile }> {
+  const cleanName = (fullName || '').trim();
+  const fallbackName = invite.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+  const resolvedName = cleanName || fallbackName;
+
   // 1. SignUp user in Supabase Auth
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: invite.email,
     password: password,
     options: {
       data: {
-        full_name: fullName || '',
+        full_name: resolvedName,
+        name: resolvedName,
         invite_token: invite.token,
         role: invite.role,
       },
@@ -1539,6 +1613,8 @@ export async function acceptDashboardInvite(
       const profile: UserProfile = {
         id: signInData.user.id,
         email: invite.email,
+        fullName: resolvedName,
+        full_name: resolvedName,
         role: invite.role,
         invitedBy: invite.invitedBy,
         updatedAt: new Date().toISOString(),
@@ -1555,10 +1631,12 @@ export async function acceptDashboardInvite(
     throw new Error('Erro ao criar conta com o convite.');
   }
 
-  // 2. Create User Profile with assigned invite role
+  // 2. Create User Profile with assigned invite role and full name
   const profile: UserProfile = {
     id: authData.user.id,
     email: invite.email,
+    fullName: resolvedName,
+    full_name: resolvedName,
     role: invite.role,
     invitedBy: invite.invitedBy,
     createdAt: new Date().toISOString(),

@@ -28,6 +28,7 @@ import {
   getUserProfile,
   getAllUserProfiles,
   updateUserRole,
+  updateUserByAdmin,
   deleteUserProfile,
   createDashboardInvite,
   getDashboardInvites,
@@ -162,6 +163,15 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
+
+  // User Editing Modal State
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
+  const [editUserFullName, setEditUserFullName] = useState('');
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserRole, setEditUserRole] = useState<UserRole>('media');
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editUserError, setEditUserError] = useState<string | null>(null);
 
   // Status/Feedback messages
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -457,6 +467,62 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       setDeleteUserError(err?.message || 'Ocorreu um erro ao tentar excluir o usuário. Tente novamente.');
     } finally {
       setIsDeletingUser(false);
+    }
+  };
+
+  // Handler: Open Edit User Modal
+  const handleOpenEditUserModal = (profile: UserProfile) => {
+    setUserToEdit(profile);
+    setEditUserFullName(profile.fullName || profile.full_name || '');
+    setEditUserEmail(profile.email || '');
+    setEditUserRole(profile.role || 'media');
+    setEditUserError(null);
+    setEditUserModalOpen(true);
+  };
+
+  // Handler: Confirm Edit User
+  const handleConfirmEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToEdit) return;
+
+    if (!editUserFullName.trim()) {
+      setEditUserError('O nome do usuário não pode ficar em branco.');
+      return;
+    }
+
+    if (!editUserEmail.trim() || !editUserEmail.includes('@')) {
+      setEditUserError('Informe um e-mail válido.');
+      return;
+    }
+
+    setIsEditingUser(true);
+    setEditUserError(null);
+
+    try {
+      const updated = await updateUserByAdmin(userToEdit.id, {
+        fullName: editUserFullName,
+        role: editUserRole,
+        email: editUserEmail,
+      });
+
+      setStatusMsg({
+        type: 'success',
+        text: `Dados do usuário "${updated.fullName || updated.full_name}" (${updated.email}) atualizados com sucesso!`,
+      });
+
+      if (userToEdit.id === user?.id) {
+        setUserRole(updated.role);
+        setUserProfile(updated);
+      }
+
+      setEditUserModalOpen(false);
+      setUserToEdit(null);
+      await loadInvitesAndUsers();
+    } catch (err: any) {
+      console.error('Edit user error:', err);
+      setEditUserError('Erro ao atualizar usuário: ' + (err.message || 'Falha de comunicação.'));
+    } finally {
+      setIsEditingUser(false);
     }
   };
 
@@ -1605,7 +1671,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               </div>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <span className="text-xs text-slate-400 font-medium">
-                  Sessão: <strong className="text-slate-200">{user.email}</strong>
+                  Sessão: <strong className="text-slate-200">{userProfile?.fullName || userProfile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email}</strong>
                 </span>
                 {userRole === 'admin' && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
@@ -2914,13 +2980,20 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                         {allProfiles.map((prof) => (
                           <tr key={prof.id} className="hover:bg-slate-50 transition-colors">
                             <td className="py-3 px-4 font-bold text-slate-900">
-                              <div className="flex items-center gap-2">
-                                <span>{prof.full_name || 'Usuário Sem Nome'}</span>
-                                {prof.id === user?.id && (
-                                  <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-black uppercase">
-                                    Você
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-full bg-purple-100 text-purple-700 font-black flex items-center justify-center text-xs border border-purple-200 shrink-0">
+                                  {(prof.fullName || prof.full_name || prof.email || 'U').charAt(0).toUpperCase()}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-black text-slate-900">
+                                    {prof.fullName || prof.full_name || prof.email.split('@')[0]}
                                   </span>
-                                )}
+                                  {prof.id === user?.id && (
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-black uppercase">
+                                      Você
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="py-3 px-4 text-slate-600">{prof.email}</td>
@@ -2955,18 +3028,28 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                             </td>
                             {userRole === 'admin' && (
                               <td className="py-3 px-4 text-right">
-                                {prof.id === user?.id ? (
-                                  <span className="text-[10px] text-slate-400 font-semibold italic">Conta Ativa</span>
-                                ) : (
+                                <div className="flex items-center justify-end gap-1.5">
                                   <button
-                                    onClick={() => handleOpenDeleteUserModal(prof)}
-                                    className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
-                                    title="Excluir Usuário do Sistema"
+                                    onClick={() => handleOpenEditUserModal(prof)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold border border-slate-300 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
+                                    title="Editar Nome, E-mail ou Cargo"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                                    <span>Excluir</span>
+                                    <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                                    <span>Editar</span>
                                   </button>
-                                )}
+                                  {prof.id === user?.id ? (
+                                    <span className="text-[10px] text-slate-400 font-semibold italic ml-1">Conta Ativa</span>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleOpenDeleteUserModal(prof)}
+                                      className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
+                                      title="Excluir Usuário do Sistema"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                      <span>Excluir</span>
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -3993,8 +4076,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               </p>
               <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 text-slate-800 font-sans">
                 <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Nome:</span>
+                  <span className="font-black text-slate-900">{userToDelete.fullName || userToDelete.full_name || 'Usuário Sem Nome'}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-semibold">E-mail:</span>
-                  <span className="font-black text-slate-900">{userToDelete.email}</span>
+                  <span className="font-bold text-slate-700">{userToDelete.email}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-semibold">Cargo Atual:</span>
@@ -4041,6 +4128,121 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 6: EDITAR USUÁRIO (ADMIN ONLY)                          */}
+      {/* ------------------------------------------------------------- */}
+      {editUserModalOpen && userToEdit && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-[#102bde]" />
+                <h3 className="font-black text-lg uppercase text-slate-900">
+                  Editar Usuário
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setEditUserModalOpen(false);
+                  setUserToEdit(null);
+                }}
+                disabled={isEditingUser}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editUserError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{editUserError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmEditUser} className="space-y-4 text-xs font-sans">
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  Nome Completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editUserFullName}
+                  onChange={(e) => setEditUserFullName(e.target.value)}
+                  placeholder="Ex: Pr. João Silva"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  E-mail de Acesso
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  placeholder="Ex: usuario@igreja.org"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  Cargo / Nível de Acesso
+                </label>
+                <select
+                  value={editUserRole}
+                  onChange={(e) => setEditUserRole(e.target.value as UserRole)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 bg-white focus:outline-none focus:border-[#102bde] cursor-pointer"
+                >
+                  <option value="admin">Administrador (Acesso Total)</option>
+                  <option value="media">Mídia (Gerencia Pregações e Eventos)</option>
+                  <option value="intercession">Intercessão (Gerencia Pedidos de Oração)</option>
+                </select>
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 leading-relaxed flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
+                <span>
+                  As alterações serão atualizadas com segurança na tabela pública e sincronizadas no Supabase Auth.
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isEditingUser}
+                  onClick={() => {
+                    setEditUserModalOpen(false);
+                    setUserToEdit(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold uppercase cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditingUser}
+                  className="px-5 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black uppercase tracking-wider cursor-pointer shadow-md flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isEditingUser ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Salvar Alterações</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

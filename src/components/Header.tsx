@@ -36,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'ministries', label: 'MINISTÉRIOS' },
     { id: 'schedule', label: 'PROGRAMAÇÃO' },
     { id: 'sermons', label: 'MENSAGENS' },
+    { id: 'donations', label: 'DOAÇÕES' },
     { id: 'contact', label: 'VISITAR' },
   ];
 

@@ -15,6 +15,7 @@ import { MinistriesPage } from './pages/Ministries';
 import { SchedulePage } from './pages/Schedule';
 import { SermonsPage } from './pages/Sermons';
 import { ContactPage } from './pages/Contact';
+import { DonationsPage } from './pages/Donations';
 import { AdminPage } from './pages/Admin';
 
 export default function App() {
@@ -92,6 +93,10 @@ export default function App() {
 
         {currentPage === 'contact' && (
           <ContactPage />
+        )}
+
+        {currentPage === 'donations' && (
+          <DonationsPage />
         )}
       </main>
 

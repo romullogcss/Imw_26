@@ -1,4 +1,4 @@
-export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'sermons' | 'contact' | 'admin';
+export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'sermons' | 'contact' | 'donations' | 'admin';
 
 export interface Leader {
   id: string;
@@ -120,6 +120,8 @@ export interface UserProfile {
   id: string;
   email: string;
   role: UserRole;
+  fullName?: string;
+  full_name?: string;
   invitedBy?: string | null;
   createdAt?: string;
   updatedAt?: string;

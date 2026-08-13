@@ -92,6 +92,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenPrayerModal })
               </li>
               <li>
                 <button
+                  onClick={() => onNavigate('donations')}
+                  className="hover:text-[#102bde] transition-colors flex items-center gap-2 cursor-pointer text-emerald-400 font-semibold"
+                >
+                  <span className="text-emerald-400 font-bold">›</span> Doações e Ofertas (Pix)
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => onNavigate('contact')}
                   className="hover:text-[#102bde] transition-colors flex items-center gap-2 cursor-pointer"
                 >

@@ -11,6 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
+  full_name TEXT,
   role TEXT NOT NULL CHECK (role IN ('admin', 'media', 'intercession')),
   invited_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -174,8 +175,17 @@ DECLARE
   v_role TEXT := NULL;
   v_invite_role TEXT;
   v_invited_by UUID;
+  v_full_name TEXT;
 BEGIN
-  -- 1. Verificar se o cadastro possui invite_token nos metadados
+  -- 1. Extrair nome completo dos metadados do usuário ou derivar do e-mail
+  v_full_name := COALESCE(
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'name',
+    NEW.raw_user_meta_data->>'first_name',
+    INITCAP(REPLACE(SPLIT_PART(NEW.email, '@', 1), '.', ' '))
+  );
+
+  -- 2. Verificar se o cadastro possui invite_token nos metadados
   IF (NEW.raw_user_meta_data->>'invite_token') IS NOT NULL THEN
     SELECT role, invited_by INTO v_invite_role, v_invited_by
     FROM public.invites
@@ -191,7 +201,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 2. Se não veio de convite, verificar cargo nos metadados do cadastro
+  -- 3. Se não veio de convite, verificar cargo nos metadados do cadastro
   IF v_role IS NULL THEN
     IF (NEW.raw_user_meta_data->>'role') IS NOT NULL AND (NEW.raw_user_meta_data->>'role') IN ('admin', 'media', 'intercession') THEN
       v_role := NEW.raw_user_meta_data->>'role';
@@ -207,10 +217,11 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO public.profiles (id, email, role, invited_by, created_at, updated_at)
+  INSERT INTO public.profiles (id, email, full_name, role, invited_by, created_at, updated_at)
   VALUES (
     NEW.id,
     NEW.email,
+    v_full_name,
     v_role,
     v_invited_by,
     now(),
@@ -218,6 +229,7 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE
   SET email = EXCLUDED.email,
+      full_name = COALESCE(EXCLUDED.full_name, public.profiles.full_name),
       role = COALESCE(public.profiles.role, EXCLUDED.role),
       updated_at = now();
 
@@ -230,11 +242,19 @@ CREATE TRIGGER on_auth_user_created_profile
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_profile();
 
--- Sincronização e Backfill: Inserir em public.profiles usuários existentes do auth.users sem registro
-INSERT INTO public.profiles (id, email, role, created_at, updated_at)
+-- Sincronização e Backfill: Garantir coluna full_name e popular usuários existentes
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS full_name TEXT;
+
+INSERT INTO public.profiles (id, email, full_name, role, created_at, updated_at)
 SELECT 
   u.id,
   u.email,
+  COALESCE(
+    u.raw_user_meta_data->>'full_name',
+    u.raw_user_meta_data->>'name',
+    u.raw_user_meta_data->>'first_name',
+    INITCAP(REPLACE(SPLIT_PART(u.email, '@', 1), '.', ' '))
+  ) AS full_name,
   COALESCE(u.raw_user_meta_data->>'role', 'media') AS role,
   u.created_at,
   now()
@@ -242,6 +262,17 @@ FROM auth.users u
 LEFT JOIN public.profiles p ON p.id = u.id
 WHERE p.id IS NULL
 ON CONFLICT (id) DO NOTHING;
+
+-- Atualizar perfis existentes que ainda possuem full_name nulo ou em branco
+UPDATE public.profiles p
+SET full_name = COALESCE(
+  u.raw_user_meta_data->>'full_name',
+  u.raw_user_meta_data->>'name',
+  u.raw_user_meta_data->>'first_name',
+  INITCAP(REPLACE(SPLIT_PART(p.email, '@', 1), '.', ' '))
+)
+FROM auth.users u
+WHERE p.id = u.id AND (p.full_name IS NULL OR TRIM(p.full_name) = '');
 
 -- ====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -406,5 +437,72 @@ BEGIN
   DELETE FROM public.profiles WHERE id = target_user_id;
 
   RETURN TRUE;
+END;
+$$;
+
+-- ====================================================================
+-- 10. FUNÇÃO DE EDIÇÃO DE USUÁRIO POR ADMINISTRADOR (AUTH & PROFILES)
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.update_user_by_admin(
+  target_user_id UUID,
+  new_full_name TEXT DEFAULT NULL,
+  new_role TEXT DEFAULT NULL,
+  new_email TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_updated_profile JSONB;
+BEGIN
+  -- 1. Verificar se o chamador é admin
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Acesso negado. Apenas administradores podem editar usuários.';
+  END IF;
+
+  -- 2. Validar cargo se fornecido
+  IF new_role IS NOT NULL AND new_role NOT IN ('admin', 'media', 'intercession') THEN
+    RAISE EXCEPTION 'Cargo inválido. Escolha entre admin, media ou intercession.';
+  END IF;
+
+  -- 3. Atualizar a tabela pública public.profiles
+  UPDATE public.profiles
+  SET 
+    full_name = COALESCE(NULLIF(TRIM(new_full_name), ''), full_name),
+    role = COALESCE(new_role, role),
+    email = COALESCE(NULLIF(TRIM(new_email), ''), email),
+    updated_at = now()
+  WHERE id = target_user_id;
+
+  -- 4. Sincronizar em auth.users (email, raw_user_meta_data, raw_app_meta_data)
+  UPDATE auth.users
+  SET 
+    email = COALESCE(NULLIF(TRIM(new_email), ''), email),
+    raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) 
+      || jsonb_build_object(
+          'full_name', COALESCE(NULLIF(TRIM(new_full_name), ''), raw_user_meta_data->>'full_name'),
+          'name', COALESCE(NULLIF(TRIM(new_full_name), ''), raw_user_meta_data->>'name'),
+          'role', COALESCE(new_role, raw_user_meta_data->>'role')
+        ),
+    raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
+      || jsonb_build_object('role', COALESCE(new_role, raw_app_meta_data->>'role')),
+    updated_at = now()
+  WHERE id = target_user_id;
+
+  -- 5. Retornar os dados atualizados em formato JSON
+  SELECT json_build_object(
+    'id', p.id,
+    'email', p.email,
+    'full_name', p.full_name,
+    'fullName', p.full_name,
+    'role', p.role,
+    'updatedAt', p.updated_at
+  )::jsonb INTO v_updated_profile
+  FROM public.profiles p
+  WHERE p.id = target_user_id;
+
+  RETURN v_updated_profile;
 END;
 $$;
