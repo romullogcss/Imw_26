@@ -1266,12 +1266,21 @@ export async function deleteUserProfile(userId: string): Promise<void> {
   saveLocalProfiles(local);
 
   try {
-    const { error } = await supabase.from('profiles').delete().eq('id', userId);
-    if (error) {
-      console.warn('[Supabase] Erro ao deletar perfil:', error.message);
+    // Tenta deletar do Supabase Auth e Profiles via RPC de admin
+    const { error: rpcError } = await supabase.rpc('delete_user_by_admin', {
+      target_user_id: userId,
+    });
+
+    if (rpcError) {
+      console.warn('[Supabase] RPC delete_user_by_admin falhou, executando deleção direta em profiles:', rpcError.message);
+      const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
     }
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[Supabase] Exceção ao deletar perfil:', err);
+    throw err;
   }
 }
 

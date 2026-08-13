@@ -378,3 +378,33 @@ CREATE POLICY "Admin and Intercession update prayer_requests" ON public.prayer_r
 DROP POLICY IF EXISTS "Admin and Intercession delete prayer_requests" ON public.prayer_requests;
 CREATE POLICY "Admin and Intercession delete prayer_requests" ON public.prayer_requests
   FOR DELETE TO authenticated USING (public.is_admin() OR public.is_intercession());
+
+-- ====================================================================
+-- 9. FUNÇÃO DE EXCLUSÃO DE USUÁRIO POR ADMINISTRADOR (AUTH & PROFILES)
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.delete_user_by_admin(target_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  -- 1. Verificar se o chamador é admin
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Acesso negado. Apenas administradores podem excluir usuários.';
+  END IF;
+
+  -- 2. Impedir que o administrador exclua a si mesmo
+  IF target_user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Não é permitido excluir seu próprio usuário.';
+  END IF;
+
+  -- 3. Deletar da tabela auth.users (o ON DELETE CASCADE removerá de public.profiles)
+  DELETE FROM auth.users WHERE id = target_user_id;
+
+  -- 4. Garantir exclusão em public.profiles caso exista desacoplamento
+  DELETE FROM public.profiles WHERE id = target_user_id;
+
+  RETURN TRUE;
+END;
+$$;

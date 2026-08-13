@@ -157,6 +157,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [sermonUploadProgress, setSermonUploadProgress] = useState<number | null>(null);
   const [sermonUploadError, setSermonUploadError] = useState<string | null>(null);
 
+  // User Deletion Modal State
+  const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [deleteUserError, setDeleteUserError] = useState<string | null>(null);
+
   // Status/Feedback messages
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [seedingLoading, setSeedingLoading] = useState(false);
@@ -414,6 +420,43 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       loadInvitesAndUsers();
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: 'Erro ao alterar cargo: ' + err.message });
+    }
+  };
+
+  // Handler: Open Delete User Modal
+  const handleOpenDeleteUserModal = (profile: UserProfile) => {
+    if (profile.id === user?.id) {
+      setStatusMsg({
+        type: 'error',
+        text: 'Você não pode excluir a sua própria conta ativa.',
+      });
+      return;
+    }
+    setUserToDelete(profile);
+    setDeleteUserError(null);
+    setDeleteUserModalOpen(true);
+  };
+
+  // Handler: Confirm Delete User
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    setDeleteUserError(null);
+
+    try {
+      await deleteUserProfile(userToDelete.id);
+      setStatusMsg({
+        type: 'success',
+        text: `O usuário "${userToDelete.email}" foi excluído com sucesso.`,
+      });
+      setDeleteUserModalOpen(false);
+      setUserToDelete(null);
+      await loadInvitesAndUsers();
+    } catch (err: any) {
+      console.error('Erro ao excluir usuário:', err);
+      setDeleteUserError(err?.message || 'Ocorreu um erro ao tentar excluir o usuário. Tente novamente.');
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -2864,6 +2907,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                           <th className="py-3 px-4">E-mail</th>
                           <th className="py-3 px-4">Cargo Atual</th>
                           <th className="py-3 px-4">Alterar Cargo</th>
+                          {userRole === 'admin' && <th className="py-3 px-4 text-right">Ações</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
@@ -2909,6 +2953,22 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                                 <option value="intercession">Intercessão</option>
                               </select>
                             </td>
+                            {userRole === 'admin' && (
+                              <td className="py-3 px-4 text-right">
+                                {prof.id === user?.id ? (
+                                  <span className="text-[10px] text-slate-400 font-semibold italic">Conta Ativa</span>
+                                ) : (
+                                  <button
+                                    onClick={() => handleOpenDeleteUserModal(prof)}
+                                    className="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200 inline-flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
+                                    title="Excluir Usuário do Sistema"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                    <span>Excluir</span>
+                                  </button>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -3884,6 +3944,103 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL 5: CONFIRMAÇÃO DE EXCLUSÃO DE USUÁRIO                       */}
+      {/* ------------------------------------------------------------- */}
+      {deleteUserModalOpen && userToDelete && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-100 text-red-600 rounded-2xl shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1 flex-1">
+                <h3 className="font-black text-lg text-slate-900 uppercase tracking-tight">
+                  Excluir Usuário
+                </h3>
+                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                  Esta ação removerá permanentemente o acesso deste integrante ao sistema.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!isDeletingUser) {
+                    setDeleteUserModalOpen(false);
+                    setUserToDelete(null);
+                  }
+                }}
+                disabled={isDeletingUser}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {deleteUserError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{deleteUserError}</span>
+              </div>
+            )}
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 text-xs">
+              <p className="text-slate-800 font-bold">
+                Deseja realmente excluir este usuário?
+              </p>
+              <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2 text-slate-800 font-sans">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">E-mail:</span>
+                  <span className="font-black text-slate-900">{userToDelete.email}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-semibold">Cargo Atual:</span>
+                  <span className="font-bold uppercase text-purple-700">{userToDelete.role}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] leading-relaxed flex items-start gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                A exclusão é realizada com segurança via backend, removendo o usuário do Supabase Auth e limpando os perfis públicos (cascade).
+              </span>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={() => {
+                  setDeleteUserModalOpen(false);
+                  setUserToDelete(null);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold uppercase text-xs cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingUser}
+                onClick={handleConfirmDeleteUser}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-wider cursor-pointer shadow-md flex items-center gap-2 transition-colors disabled:opacity-50"
+              >
+                {isDeletingUser ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Confirmar Exclusão</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
