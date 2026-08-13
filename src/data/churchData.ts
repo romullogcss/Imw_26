@@ -524,7 +524,58 @@ export const MINISTRIES_DATA: Ministry[] = [
   },
 ];
 
-export const WEEKLY_SCHEDULE: ScheduleItem[] = [];
+export const WEEKLY_SCHEDULE: ScheduleItem[] = [
+  {
+    id: 'sch-1',
+    day: 'Domingo',
+    time: '09:00',
+    title: 'Escola Bíblica Dominical (EBD)',
+    description: 'Estudo expositivo e aprofundado das Escrituras para todas as idades (Crianças, Jovens e Adultos).',
+    location: 'Templo Principal',
+    category: 'Estudo',
+    isHighlight: false,
+  },
+  {
+    id: 'sch-2',
+    day: 'Domingo',
+    time: '18:00',
+    title: 'Culto de Celebração & Família',
+    description: 'Culto principal da igreja com louvor congregacional, adoração, sermão expositivo e comunhão.',
+    location: 'Templo Principal',
+    category: 'Culto',
+    isHighlight: true,
+  },
+  {
+    id: 'sch-3',
+    day: 'Terça-feira',
+    time: '19:30',
+    title: 'Culto de Oração & Clamor',
+    description: 'Momento dedicado à oração intercessória, clamor pelas famílias, causas de saúde e edificação.',
+    location: 'Templo Principal',
+    category: 'Oração',
+    isHighlight: false,
+  },
+  {
+    id: 'sch-4',
+    day: 'Quinta-feira',
+    time: '19:30',
+    title: 'Culto de Doutrina & Vitória',
+    description: 'Estudo sistemático da palavra de Deus, fortalecimento da fé e princípios cristãos para o dia a dia.',
+    location: 'Templo Principal',
+    category: 'Culto',
+    isHighlight: false,
+  },
+  {
+    id: 'sch-5',
+    day: 'Sábado',
+    time: '19:30',
+    title: 'Culto da Juventude (Mocidade IMW)',
+    description: 'Encontro vibrante de jovens e adolescentes com louvor dinâmico, palavra transformadora e comunhão.',
+    location: 'Templo Principal',
+    category: 'Jovens',
+    isHighlight: false,
+  },
+];
 
 export const SPECIAL_EVENTS: ChurchEvent[] = [];
 
