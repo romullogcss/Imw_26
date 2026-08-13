@@ -73,7 +73,7 @@ interface AdminProps {
 export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [userRole, setUserRole] = useState<UserRole>('admin');
+  const [userRole, setUserRole] = useState<UserRole>('media');
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   // Invite acceptance states (when URL contains ?invite=TOKEN)
@@ -226,11 +226,18 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
       getInviteByToken(token)
         .then((invite) => {
-          if (invite) {
-            setPendingInvite(invite);
-          } else {
+          if (!invite) {
             setPendingInvite(null);
-            setInviteAcceptError('Este convite de acesso é inválido, já foi utilizado ou está expirado.');
+            setInviteAcceptError('Este convite de acesso é inválido ou não foi encontrado.');
+          } else if (invite.status === 'accepted') {
+            setPendingInvite(null);
+            setInviteAcceptError('Este convite de acesso já foi utilizado por outro usuário.');
+          } else if (invite.status === 'expired') {
+            setPendingInvite(null);
+            setInviteAcceptError('Este convite de acesso expirou. Solicite um novo convite ao administrador.');
+          } else {
+            setPendingInvite(invite);
+            setInviteAcceptError(null);
           }
         })
         .catch((err) => {
@@ -253,11 +260,11 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         })
         .catch((err) => {
           console.warn('Error getting user profile:', err);
-          setUserRole('admin');
+          setUserRole('media');
         });
     } else {
       setUserProfile(null);
-      setUserRole('admin');
+      setUserRole('media');
     }
   }, [user]);
 

@@ -1129,7 +1129,7 @@ function mapProfile(row: any): UserProfile {
   return {
     id: String(row.id),
     email: row.email || '',
-    role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'admin',
+    role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'media',
     invitedBy: row.invited_by || row.invitedBy || null,
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
     updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
@@ -1162,12 +1162,28 @@ export async function getUserProfile(userId: string, email?: string): Promise<Us
     }
   }
 
-  // If still no profile, create/ensure default profile (first user = admin)
+  // If still no profile, determine role based on total profiles count or pending invite (never default to 'admin')
   if (!profile) {
+    let assignedRole: UserRole = 'media';
+    try {
+      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      if (count === 0) {
+        assignedRole = 'admin';
+      } else if (email) {
+        const cleanEmail = email.trim().toLowerCase();
+        const { data: inv } = await supabase.from('invites').select('role').eq('email', cleanEmail).maybeSingle();
+        if (inv && (inv.role === 'admin' || inv.role === 'media' || inv.role === 'intercession')) {
+          assignedRole = inv.role as UserRole;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const newProfile: UserProfile = {
       id: userId,
       email: email || '',
-      role: 'admin',
+      role: assignedRole,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1280,6 +1296,18 @@ function saveLocalInvites(invites: DashboardInvite[]): void {
   }
 }
 
+function parseDateMs(dateStr?: string | null): number {
+  if (!dateStr) return NaN;
+  let cleanStr = String(dateStr).trim();
+  if (!cleanStr.includes('T') && cleanStr.includes(' ')) {
+    cleanStr = cleanStr.replace(' ', 'T');
+  }
+  if (!cleanStr.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(cleanStr)) {
+    cleanStr += 'Z';
+  }
+  return new Date(cleanStr).getTime();
+}
+
 export function getInviteStatus(params: {
   acceptedAt?: string | null;
   accepted_at?: string | null;
@@ -1294,7 +1322,7 @@ export function getInviteStatus(params: {
 
   const expires = params.expiresAt || params.expires_at;
   if (expires) {
-    const expireTime = new Date(expires).getTime();
+    const expireTime = parseDateMs(expires);
     if (!isNaN(expireTime) && expireTime <= Date.now()) {
       return 'expired';
     }
@@ -1449,14 +1477,7 @@ export async function getInviteByToken(token: string): Promise<DashboardInvite |
       .maybeSingle();
 
     if (!error && data) {
-      const invite = mapInvite(data);
-      if (invite.status === 'accepted') {
-        return null; // Já aceito
-      }
-      if (invite.status === 'expired') {
-        return null; // Expirado
-      }
-      return invite;
+      return mapInvite(data);
     }
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar convite por token:', err);
@@ -1466,10 +1487,7 @@ export async function getInviteByToken(token: string): Promise<DashboardInvite |
   const local = getLocalInvites();
   const found = local.find((i) => i.token === token.trim());
   if (found) {
-    const mapped = mapInvite(found);
-    if (mapped.status === 'pending') {
-      return mapped;
-    }
+    return mapInvite(found);
   }
 
   return null;
