@@ -113,3 +113,25 @@ export interface PrayerRequest {
   status: 'pending' | 'prayed' | 'archived';
   createdAt: string;
 }
+
+export type UserRole = 'admin' | 'media' | 'intercession';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+  invitedBy?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DashboardInvite {
+  id: string;
+  email: string;
+  role: UserRole;
+  token: string;
+  invitedBy?: string | null;
+  expiresAt: string;
+  acceptedAt?: string | null;
+  createdAt?: string;
+}

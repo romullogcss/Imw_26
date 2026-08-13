@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest } from '../types';
+import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { 
   extractYoutubeId, 
@@ -1103,4 +1103,394 @@ export async function deletePrayerRequest(id: string): Promise<void> {
 
   fetchAndNotifyPrayerRequests();
 }
+
+// -------------------------------------------------------------
+// USER PROFILES & ROLES
+// -------------------------------------------------------------
+
+function getLocalProfiles(): UserProfile[] {
+  try {
+    const raw = localStorage.getItem('imw_user_profiles');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalProfiles(profiles: UserProfile[]): void {
+  try {
+    localStorage.setItem('imw_user_profiles', JSON.stringify(profiles));
+  } catch (err) {
+    console.warn('Erro ao salvar perfis locais:', err);
+  }
+}
+
+function mapProfile(row: any): UserProfile {
+  return {
+    id: String(row.id),
+    email: row.email || '',
+    role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'admin',
+    invitedBy: row.invited_by || row.invitedBy || null,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function getUserProfile(userId: string, email?: string): Promise<UserProfile> {
+  let profile: UserProfile | null = null;
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!error && data) {
+      profile = mapProfile(data);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao carregar perfil:', err);
+  }
+
+  // Fallback to local cache if not found in DB
+  if (!profile) {
+    const local = getLocalProfiles();
+    const found = local.find((p) => p.id === userId);
+    if (found) {
+      profile = found;
+    }
+  }
+
+  // If still no profile, create/ensure default profile (first user = admin)
+  if (!profile) {
+    const newProfile: UserProfile = {
+      id: userId,
+      email: email || '',
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    profile = newProfile;
+    upsertUserProfile(newProfile).catch(() => {});
+  }
+
+  return profile;
+}
+
+export async function upsertUserProfile(profile: UserProfile): Promise<UserProfile> {
+  const local = getLocalProfiles();
+  const index = local.findIndex((p) => p.id === profile.id);
+  if (index >= 0) {
+    local[index] = { ...local[index], ...profile, updatedAt: new Date().toISOString() };
+  } else {
+    local.unshift(profile);
+  }
+  saveLocalProfiles(local);
+
+  try {
+    const payload = {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      invited_by: profile.invitedBy || null,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('profiles').upsert(payload);
+    if (error) {
+      console.warn('[Supabase] Aviso ao atualizar perfil:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao atualizar perfil:', err);
+  }
+
+  return profile;
+}
+
+export async function getAllUserProfiles(): Promise<UserProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const items = data.map(mapProfile);
+      saveLocalProfiles(items);
+      return items;
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar todos os perfis:', err);
+  }
+
+  return getLocalProfiles();
+}
+
+export async function updateUserRole(userId: string, newRole: UserRole): Promise<void> {
+  const local = getLocalProfiles();
+  const updated = local.map((p) => (p.id === userId ? { ...p, role: newRole, updatedAt: new Date().toISOString() } : p));
+  saveLocalProfiles(updated);
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: newRole, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) {
+      console.warn('[Supabase] Aviso ao alterar cargo do usuário:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao alterar cargo do usuário:', err);
+  }
+}
+
+export async function deleteUserProfile(userId: string): Promise<void> {
+  const local = getLocalProfiles().filter((p) => p.id !== userId);
+  saveLocalProfiles(local);
+
+  try {
+    const { error } = await supabase.from('profiles').delete().eq('id', userId);
+    if (error) {
+      console.warn('[Supabase] Erro ao deletar perfil:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao deletar perfil:', err);
+  }
+}
+
+// -------------------------------------------------------------
+// DASHBOARD INVITES
+// -------------------------------------------------------------
+
+function getLocalInvites(): DashboardInvite[] {
+  try {
+    const raw = localStorage.getItem('imw_dashboard_invites');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalInvites(invites: DashboardInvite[]): void {
+  try {
+    localStorage.setItem('imw_dashboard_invites', JSON.stringify(invites));
+  } catch (err) {
+    console.warn('Erro ao salvar convites locais:', err);
+  }
+}
+
+function mapInvite(row: any): DashboardInvite {
+  return {
+    id: String(row.id),
+    email: row.email || '',
+    role: (row.role === 'admin' || row.role === 'media' || row.role === 'intercession') ? row.role : 'media',
+    token: row.token || '',
+    invitedBy: row.invited_by || row.invitedBy || null,
+    expiresAt: row.expires_at || row.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    acceptedAt: row.accepted_at || row.acceptedAt || null,
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+}
+
+export async function createDashboardInvite(email: string, role: UserRole, invitedByUserId?: string): Promise<DashboardInvite> {
+  const cleanEmail = email.trim().toLowerCase();
+  const token = typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID().replace(/-/g, '') + Math.random().toString(36).substring(2, 10)
+    : Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const newInvite: DashboardInvite = {
+    id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    email: cleanEmail,
+    role,
+    token,
+    invitedBy: invitedByUserId || null,
+    expiresAt,
+    acceptedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+
+  const local = getLocalInvites();
+  local.unshift(newInvite);
+  saveLocalInvites(local);
+
+  try {
+    const payload = {
+      email: cleanEmail,
+      role,
+      token,
+      invited_by: invitedByUserId || null,
+      expires_at: expiresAt,
+    };
+
+    const { data, error } = await supabase.from('invites').insert([payload]).select('*').single();
+    if (!error && data) {
+      const dbInvite = mapInvite(data);
+      const updatedLocal = local.map((inv) => (inv.token === token ? dbInvite : inv));
+      saveLocalInvites(updatedLocal);
+      return dbInvite;
+    } else if (error) {
+      console.warn('[Supabase] Erro ao criar convite no banco:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao criar convite:', err);
+  }
+
+  return newInvite;
+}
+
+export async function getDashboardInvites(): Promise<DashboardInvite[]> {
+  try {
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      const mapped = data.map(mapInvite);
+      saveLocalInvites(mapped);
+      return mapped;
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar convites:', err);
+  }
+
+  return getLocalInvites();
+}
+
+export async function deleteDashboardInvite(inviteId: string): Promise<void> {
+  const local = getLocalInvites().filter((i) => i.id !== inviteId);
+  saveLocalInvites(local);
+
+  try {
+    const { error } = await supabase.from('invites').delete().eq('id', inviteId);
+    if (error) {
+      console.warn('[Supabase] Erro ao deletar convite:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao deletar convite:', err);
+  }
+}
+
+export async function getInviteByToken(token: string): Promise<DashboardInvite | null> {
+  if (!token || !token.trim()) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('token', token.trim())
+      .maybeSingle();
+
+    if (!error && data) {
+      const invite = mapInvite(data);
+      if (invite.acceptedAt) {
+        return null; // Já aceito
+      }
+      if (new Date(invite.expiresAt).getTime() < Date.now()) {
+        return null; // Expirado
+      }
+      return invite;
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar convite por token:', err);
+  }
+
+  // Fallback local check
+  const local = getLocalInvites();
+  const found = local.find((i) => i.token === token.trim());
+  if (found && !found.acceptedAt && new Date(found.expiresAt).getTime() > Date.now()) {
+    return found;
+  }
+
+  return null;
+}
+
+export async function acceptDashboardInvite(
+  invite: DashboardInvite,
+  password: string,
+  fullName?: string
+): Promise<{ user: any; profile: UserProfile }> {
+  // 1. SignUp user in Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: invite.email,
+    password: password,
+    options: {
+      data: {
+        full_name: fullName || '',
+        invite_token: invite.token,
+        role: invite.role,
+      },
+    },
+  });
+
+  if (authError) {
+    // If user already registered, attempt signIn
+    if (authError.message.includes('User already registered')) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: invite.email,
+        password: password,
+      });
+
+      if (signInError) {
+        throw new Error(`Este e-mail já possui conta cadastrada. Tente entrar com a sua senha existente ou contate o administrador.`);
+      }
+
+      if (!signInData.user) {
+        throw new Error('Falha ao autenticar usuário.');
+      }
+
+      const profile: UserProfile = {
+        id: signInData.user.id,
+        email: invite.email,
+        role: invite.role,
+        invitedBy: invite.invitedBy,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await upsertUserProfile(profile);
+      await markInviteAccepted(invite.token);
+      return { user: signInData.user, profile };
+    }
+    throw new Error(authError.message);
+  }
+
+  if (!authData.user) {
+    throw new Error('Erro ao criar conta com o convite.');
+  }
+
+  // 2. Create User Profile with assigned invite role
+  const profile: UserProfile = {
+    id: authData.user.id,
+    email: invite.email,
+    role: invite.role,
+    invitedBy: invite.invitedBy,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await upsertUserProfile(profile);
+
+  // 3. Mark Invite as Accepted
+  await markInviteAccepted(invite.token);
+
+  return { user: authData.user, profile };
+}
+
+async function markInviteAccepted(token: string): Promise<void> {
+  const local = getLocalInvites();
+  const updatedLocal = local.map((i) => (i.token === token ? { ...i, acceptedAt: new Date().toISOString() } : i));
+  saveLocalInvites(updatedLocal);
+
+  try {
+    await supabase
+      .from('invites')
+      .update({ accepted_at: new Date().toISOString() })
+      .eq('token', token);
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao marcar convite como aceito:', err);
+  }
+}
+
 

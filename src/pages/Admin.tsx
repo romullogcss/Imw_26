@@ -24,7 +24,16 @@ import {
   seedInitialFirestoreData,
   subscribePrayerRequests,
   updatePrayerRequestStatus,
-  deletePrayerRequest
+  deletePrayerRequest,
+  getUserProfile,
+  getAllUserProfiles,
+  updateUserRole,
+  deleteUserProfile,
+  createDashboardInvite,
+  getDashboardInvites,
+  deleteDashboardInvite,
+  getInviteByToken,
+  acceptDashboardInvite
 } from '../services/firestoreService';
 import { 
   uploadFile,
@@ -45,7 +54,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest } from '../types';
+import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -54,7 +63,7 @@ import {
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
   Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music,
-  Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck
+  Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck, UserPlus, Shield, Key, Copy, XCircle, UserCheck, Crown, Radio, HeartHandshake, UserX, ExternalLink, Eye, EyeOff
 } from 'lucide-react';
 
 interface AdminProps {
@@ -63,7 +72,20 @@ interface AdminProps {
 
 export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>('admin');
   const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // Invite acceptance states (when URL contains ?invite=TOKEN)
+  const [inviteTokenParam, setInviteTokenParam] = useState<string | null>(null);
+  const [pendingInvite, setPendingInvite] = useState<DashboardInvite | null>(null);
+  const [validatingInvite, setValidatingInvite] = useState(false);
+  const [inviteAcceptError, setInviteAcceptError] = useState<string | null>(null);
+  const [inviteFullName, setInviteFullName] = useState('');
+  const [invitePassword, setInvitePassword] = useState('');
+  const [invitePasswordConfirm, setInvitePasswordConfirm] = useState('');
+  const [submittingInviteAcceptance, setSubmittingInviteAcceptance] = useState(false);
+  const [showInvitePassword, setShowInvitePassword] = useState(false);
 
   // Login form states
   const [loginEmail, setLoginEmail] = useState('');
@@ -72,7 +94,17 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [submittingLogin, setSubmittingLogin] = useState(false);
 
   // Navigation tab in Admin CMS
-  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers'>('schedules');
+  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites'>('schedules');
+
+  // Invites & Users Management State (Admin only)
+  const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
+  const [allInvites, setAllInvites] = useState<DashboardInvite[]>([]);
+  const [loadingInvitesAndUsers, setLoadingInvitesAndUsers] = useState(false);
+  const [newInviteEmail, setNewInviteEmail] = useState('');
+  const [newInviteRole, setNewInviteRole] = useState<UserRole>('media');
+  const [createdInvite, setCreatedInvite] = useState<DashboardInvite | null>(null);
+  const [copiedInviteToken, setCopiedInviteToken] = useState<string | null>(null);
+  const [creatingInviteLoading, setCreatingInviteLoading] = useState(false);
 
   // Firestore / Supabase Collections State
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
@@ -181,6 +213,202 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       unsubSettings();
     };
   }, [user]);
+
+  // Check URL parameters for invitation token (?invite=TOKEN or ?invite_token=TOKEN)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite') || params.get('invite_token');
+
+    if (token) {
+      setInviteTokenParam(token);
+      setValidatingInvite(true);
+      setInviteAcceptError(null);
+
+      getInviteByToken(token)
+        .then((invite) => {
+          if (invite) {
+            setPendingInvite(invite);
+          } else {
+            setPendingInvite(null);
+            setInviteAcceptError('Este convite de acesso é inválido, já foi utilizado ou está expirado.');
+          }
+        })
+        .catch((err) => {
+          console.error('Error validating invite token:', err);
+          setInviteAcceptError('Erro ao validar convite de acesso: ' + (err.message || 'Verifique sua conexão.'));
+        })
+        .finally(() => {
+          setValidatingInvite(false);
+        });
+    }
+  }, []);
+
+  // Fetch or sync user profile & role when authenticated
+  useEffect(() => {
+    if (user) {
+      getUserProfile(user.id, user.email || '')
+        .then((prof) => {
+          setUserProfile(prof);
+          setUserRole(prof.role);
+        })
+        .catch((err) => {
+          console.warn('Error getting user profile:', err);
+          setUserRole('admin');
+        });
+    } else {
+      setUserProfile(null);
+      setUserRole('admin');
+    }
+  }, [user]);
+
+  // Route & Tab Guard: Automatically switch to first allowed tab if activeTab is not allowed for userRole
+  useEffect(() => {
+    if (!user) return;
+
+    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites'>> = {
+      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites'],
+      media: ['sermons', 'events'],
+      intercession: ['prayers'],
+    };
+
+    const allowed = allowedTabsMap[userRole] || allowedTabsMap.admin;
+    if (!allowed.includes(activeTab)) {
+      setActiveTab(allowed[0]);
+    }
+  }, [userRole, activeTab, user]);
+
+  // Load All Profiles and Invites for Admin Tab
+  const loadInvitesAndUsers = async () => {
+    if (userRole !== 'admin') return;
+    setLoadingInvitesAndUsers(true);
+    try {
+      const [profs, invs] = await Promise.all([
+        getAllUserProfiles(),
+        getDashboardInvites(),
+      ]);
+      setAllProfiles(profs);
+      setAllInvites(invs);
+    } catch (err) {
+      console.error('Error loading invites and users:', err);
+    } finally {
+      setLoadingInvitesAndUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && userRole === 'admin' && activeTab === 'users_invites') {
+      loadInvitesAndUsers();
+    }
+  }, [user, userRole, activeTab]);
+
+  // Handler: Accept Invitation Submit
+  const handleAcceptInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingInvite) return;
+
+    if (invitePassword.length < 6) {
+      setInviteAcceptError('A senha deve conter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (invitePassword !== invitePasswordConfirm) {
+      setInviteAcceptError('As senhas digitadas não coincidem. Verifique novamente.');
+      return;
+    }
+
+    setSubmittingInviteAcceptance(true);
+    setInviteAcceptError(null);
+
+    try {
+      const res = await acceptDashboardInvite(pendingInvite, invitePassword, inviteFullName);
+      setUser(res.user);
+      setUserProfile(res.profile);
+      setUserRole(res.profile.role);
+      setPendingInvite(null);
+      setInviteTokenParam(null);
+
+      // Clean token parameter from browser URL without refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      setStatusMsg({
+        type: 'success',
+        text: `Sua conta foi ativada com sucesso! Cargo: ${
+          res.profile.role === 'admin'
+            ? 'Administrador'
+            : res.profile.role === 'media'
+            ? 'Mídia'
+            : 'Intercessão'
+        }.`,
+      });
+    } catch (err: any) {
+      console.error('Accept invite error:', err);
+      setInviteAcceptError(err.message || 'Erro ao aceitar convite. Tente novamente.');
+    } finally {
+      setSubmittingInviteAcceptance(false);
+    }
+  };
+
+  // Handler: Create New Invitation (Admin Only)
+  const handleCreateInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInviteEmail.trim()) return;
+
+    setCreatingInviteLoading(true);
+    setStatusMsg(null);
+
+    try {
+      const invite = await createDashboardInvite(newInviteEmail, newInviteRole, user?.id);
+      setCreatedInvite(invite);
+      setNewInviteEmail('');
+      setStatusMsg({
+        type: 'success',
+        text: `Convite de acesso para "${invite.email}" (${invite.role.toUpperCase()}) gerado com sucesso!`,
+      });
+      loadInvitesAndUsers();
+    } catch (err: any) {
+      setStatusMsg({
+        type: 'error',
+        text: 'Erro ao gerar convite: ' + (err.message || 'Falha de conexão.'),
+      });
+    } finally {
+      setCreatingInviteLoading(false);
+    }
+  };
+
+  // Handler: Delete / Revoke Invite
+  const handleDeleteInvite = async (inviteId: string, email: string) => {
+    if (!confirm(`Tem certeza que deseja revogar o convite para "${email}"?`)) return;
+    try {
+      await deleteDashboardInvite(inviteId);
+      setStatusMsg({ type: 'success', text: 'Convite revogado com sucesso!' });
+      loadInvitesAndUsers();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: 'Erro ao revogar convite: ' + err.message });
+    }
+  };
+
+  // Handler: Update User Role (Admin Only)
+  const handleRoleChange = async (targetUserId: string, targetEmail: string, newRole: UserRole) => {
+    if (targetUserId === user?.id && newRole !== 'admin') {
+      if (!confirm('Atenção: alterar o seu próprio cargo para um nível inferior removerá seu acesso de Administrador. Deseja continuar?')) {
+        return;
+      }
+    }
+
+    try {
+      await updateUserRole(targetUserId, newRole);
+      setStatusMsg({
+        type: 'success',
+        text: `Cargo do usuário "${targetEmail}" atualizado para ${newRole.toUpperCase()} com sucesso!`,
+      });
+      if (targetUserId === user?.id) {
+        setUserRole(newRole);
+      }
+      loadInvitesAndUsers();
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: 'Erro ao alterar cargo: ' + err.message });
+    }
+  };
 
   // Handle Save Spotify Settings
   const handleSaveSpotifySettings = async (e: React.FormEvent) => {
@@ -923,9 +1151,189 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   }
 
   // -------------------------------------------------------------
-  // RENDER LOGIN SCREEN (IF NOT AUTHENTICATED)
+  // RENDER LOGIN / INVITE ACCEPTANCE SCREEN (IF NOT AUTHENTICATED)
   // -------------------------------------------------------------
   if (!user) {
+    if (inviteTokenParam) {
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#102bde]/15 rounded-full blur-[140px] pointer-events-none" />
+
+          <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 relative z-10">
+            <div className="text-center space-y-2">
+              <div className="flex justify-center mb-3">
+                <Logo variant="dark" size="lg" />
+              </div>
+              <h1 className="font-sans font-black text-xl uppercase tracking-tight text-white flex items-center justify-center gap-2">
+                <UserPlus className="w-5 h-5 text-[#102bde]" />
+                <span>ACEITAR CONVITE DE ACESSO</span>
+              </h1>
+              <p className="text-xs text-slate-400 font-medium">
+                Ativação de conta no Painel da Igreja Metodista Wesleyana
+              </p>
+            </div>
+
+            {validatingInvite ? (
+              <div className="py-8 text-center space-y-3">
+                <Loader2 className="w-8 h-8 text-[#102bde] animate-spin mx-auto" />
+                <p className="text-xs font-bold text-slate-300 uppercase">Validando convite de acesso...</p>
+              </div>
+            ) : inviteAcceptError && !pendingInvite ? (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+                  <span>{inviteAcceptError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInviteTokenParam(null);
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Voltar para a Tela de Login
+                </button>
+              </div>
+            ) : pendingInvite ? (
+              <form onSubmit={handleAcceptInviteSubmit} className="space-y-4">
+                {inviteAcceptError && (
+                  <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{inviteAcceptError}</span>
+                  </div>
+                )}
+
+                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
+                    Cargo e Permissão Atribuída:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {pendingInvite.role === 'admin' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1.5">
+                        <Crown className="w-3.5 h-3.5" />
+                        <span>ADMINISTRADOR (Acesso Total)</span>
+                      </span>
+                    ) : pendingInvite.role === 'media' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-black bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1.5">
+                        <Radio className="w-3.5 h-3.5" />
+                        <span>MÍDIA (Pregações & Eventos)</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                        <HeartHandshake className="w-3.5 h-3.5" />
+                        <span>INTERCESSÃO (Pedidos de Oração)</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-slate-300 mb-1.5">
+                    E-mail Convidado
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      disabled
+                      value={pendingInvite.email}
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-sm font-medium cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-slate-300 mb-1.5">
+                    Seu Nome Completo
+                  </label>
+                  <input
+                    type="text"
+                    value={inviteFullName}
+                    onChange={(e) => setInviteFullName(e.target.value)}
+                    placeholder="Ex: Pr. João Silva"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-[#102bde] transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-slate-300 mb-1.5">
+                    Crie sua Senha de Acesso
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showInvitePassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={invitePassword}
+                      onChange={(e) => setInvitePassword(e.target.value)}
+                      placeholder="Mínimo de 6 caracteres"
+                      className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-[#102bde] transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowInvitePassword(!showInvitePassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-1 cursor-pointer"
+                    >
+                      {showInvitePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-slate-300 mb-1.5">
+                    Confirme sua Senha
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showInvitePassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={invitePasswordConfirm}
+                      onChange={(e) => setInvitePasswordConfirm(e.target.value)}
+                      placeholder="Repita a senha criada"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-[#102bde] transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingInviteAcceptance}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] disabled:opacity-50 text-white font-sans font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg shadow-[#102bde]/25 flex items-center justify-center gap-2"
+                >
+                  {submittingInviteAcceptance ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>ATIVANDO SUA CONTA...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>CONCLUIR CADASTRO E ENTRAR</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : null}
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={onNavigateSite}
+                className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white font-bold uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Voltar para o site público</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
         {/* Background Decorative Gradient */}
@@ -1137,7 +1545,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               IMW
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-black text-lg uppercase tracking-tight text-white">
                   PAINEL DE CONTROLE (CMS)
                 </h1>
@@ -1145,9 +1553,29 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   Ao Vivo
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">
-                Sessão ativa: <strong className="text-slate-200">{user.email}</strong>
-              </p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs text-slate-400 font-medium">
+                  Sessão: <strong className="text-slate-200">{user.email}</strong>
+                </span>
+                {userRole === 'admin' && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
+                    <Crown className="w-3 h-3 text-purple-400" />
+                    <span>ADMINISTRADOR</span>
+                  </span>
+                )}
+                {userRole === 'media' && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center gap-1">
+                    <Radio className="w-3 h-3 text-blue-400" />
+                    <span>MÍDIA</span>
+                  </span>
+                )}
+                {userRole === 'intercession' && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                    <HeartHandshake className="w-3 h-3 text-emerald-400" />
+                    <span>INTERCESSÃO</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1192,107 +1620,138 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               GESTÃO DE CONTEÚDO
             </span>
 
-            <button
-              onClick={() => setActiveTab('schedules')}
-              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
-                activeTab === 'schedules'
-                  ? 'bg-[#102bde] text-white shadow-md'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4" />
-                <span>Programação</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === 'schedules' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {schedules.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('events')}
-              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
-                activeTab === 'events'
-                  ? 'bg-[#102bde] text-white shadow-md'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Calendar className="w-4 h-4" />
-                <span>Eventos Especiais</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === 'events' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {events.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('sermons')}
-              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
-                activeTab === 'sermons'
-                  ? 'bg-[#102bde] text-white shadow-md'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Youtube className="w-4 h-4" />
-                <span>Pregações (Sermões)</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === 'sermons' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {sermons.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('ministries')}
-              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
-                activeTab === 'ministries'
-                  ? 'bg-[#102bde] text-white shadow-md'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Ministérios & Galeria</span>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === 'ministries' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-              }`}>
-                {ministries.length}
-              </span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('prayers')}
-              className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
-                activeTab === 'prayers'
-                  ? 'bg-[#102bde] text-white shadow-md'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Heart className="w-4 h-4 text-red-500 fill-red-500/20" />
-                <span>Pedidos de Oração</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {prayers.filter((p) => p.status === 'pending').length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
-                    {prayers.filter((p) => p.status === 'pending').length} novos
-                  </span>
-                )}
+            {(userRole === 'admin') && (
+              <button
+                onClick={() => setActiveTab('schedules')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'schedules'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Clock className="w-4 h-4" />
+                  <span>Programação</span>
+                </div>
                 <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-                  activeTab === 'prayers' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  activeTab === 'schedules' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                 }`}>
-                  {prayers.length}
+                  {schedules.length}
                 </span>
-              </div>
-            </button>
+              </button>
+            )}
+
+            {(userRole === 'admin' || userRole === 'media') && (
+              <button
+                onClick={() => setActiveTab('events')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'events'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4" />
+                  <span>Eventos Especiais</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'events' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {events.length}
+                </span>
+              </button>
+            )}
+
+            {(userRole === 'admin' || userRole === 'media') && (
+              <button
+                onClick={() => setActiveTab('sermons')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'sermons'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Youtube className="w-4 h-4" />
+                  <span>Pregações (Sermões)</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'sermons' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {sermons.length}
+                </span>
+              </button>
+            )}
+
+            {(userRole === 'admin') && (
+              <button
+                onClick={() => setActiveTab('ministries')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'ministries'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Users className="w-4 h-4" />
+                  <span>Ministérios & Galeria</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'ministries' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {ministries.length}
+                </span>
+              </button>
+            )}
+
+            {(userRole === 'admin' || userRole === 'intercession') && (
+              <button
+                onClick={() => setActiveTab('prayers')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'prayers'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Heart className="w-4 h-4 text-red-500 fill-red-500/20" />
+                  <span>Pedidos de Oração</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {prayers.filter((p) => p.status === 'pending').length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                      {prayers.filter((p) => p.status === 'pending').length} novos
+                    </span>
+                  )}
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                    activeTab === 'prayers' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {prayers.length}
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setActiveTab('users_invites')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'users_invites'
+                    ? 'bg-purple-700 text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <UserPlus className="w-4 h-4 text-purple-600" />
+                  <span>Cargos & Convites</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'users_invites' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800 font-bold'
+                }`}>
+                  {allProfiles.length || '•'}
+                </span>
+              </button>
+            )}
           </div>
 
           {/* Quick Info Box */}
@@ -2088,6 +2547,368 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* TAB 6: CARGOS & CONVITES DE ACESSO (ADMIN ONLY) */}
+          {activeTab === 'users_invites' && userRole === 'admin' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <span className="text-purple-600 text-xs font-black uppercase tracking-widest block mb-0.5">
+                      SEGURANÇA E GERENCIAMENTO DE ACESSOS (RBAC)
+                    </span>
+                    <h2 className="font-black text-2xl uppercase text-slate-900 flex items-center gap-2">
+                      <UserPlus className="w-6 h-6 text-purple-600" />
+                      <span>CARGOS & CONVITES NO DASHBOARD</span>
+                    </h2>
+                  </div>
+
+                  <button
+                    onClick={loadInvitesAndUsers}
+                    disabled={loadingInvitesAndUsers}
+                    className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingInvitesAndUsers ? 'animate-spin' : ''}`} />
+                    <span>Atualizar Lista</span>
+                  </button>
+                </div>
+
+                {/* Role explanations callout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                  <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-1.5">
+                    <div className="flex items-center gap-2 font-black text-xs text-purple-900 uppercase">
+                      <Crown className="w-4 h-4 text-purple-600" />
+                      <span>Administrador</span>
+                    </div>
+                    <p className="text-[11px] text-purple-800 leading-relaxed">
+                      Acesso total a todas as áreas do dashboard (Programação, Eventos, Pregações, Ministérios, Pedidos de Oração e Gestão de Convites/Cargos).
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 space-y-1.5">
+                    <div className="flex items-center gap-2 font-black text-xs text-blue-900 uppercase">
+                      <Radio className="w-4 h-4 text-blue-600" />
+                      <span>Mídia</span>
+                    </div>
+                    <p className="text-[11px] text-blue-800 leading-relaxed">
+                      Acesso restrito exclusivamente às abas de <strong>Pregações (Sermões)</strong> e <strong>Eventos Especiais</strong>. Não possui acesso a convites ou outras áreas.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1.5">
+                    <div className="flex items-center gap-2 font-black text-xs text-emerald-900 uppercase">
+                      <HeartHandshake className="w-4 h-4 text-emerald-600" />
+                      <span>Intercessão</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 leading-relaxed">
+                      Acesso restrito exclusivamente à área de <strong>Pedidos de Oração</strong> para acompanhar e orar pelos membros. Não possui acesso a convites.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form: Convidar Nova Pessoa */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="font-black text-base uppercase text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Mail className="w-4 h-4 text-purple-600" />
+                  <span>Gerar Novo Convite de Acesso</span>
+                </h3>
+
+                <form onSubmit={handleCreateInviteSubmit} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                  <div className="sm:col-span-5">
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      E-mail do Convidado
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={newInviteEmail}
+                      onChange={(e) => setNewInviteEmail(e.target.value)}
+                      placeholder="exemplo@imwcosmopolis.org"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-xs text-slate-800 focus:outline-none focus:border-purple-600"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Cargo / Nível de Permissão
+                    </label>
+                    <select
+                      value={newInviteRole}
+                      onChange={(e: any) => setNewInviteRole(e.target.value as UserRole)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-xs text-slate-800 focus:outline-none focus:border-purple-600 cursor-pointer"
+                    >
+                      <option value="media">Mídia (Pregações & Eventos)</option>
+                      <option value="intercession">Intercessão (Pedidos de Oração)</option>
+                      <option value="admin">Administrador (Acesso Total)</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <button
+                      type="submit"
+                      disabled={creatingInviteLoading}
+                      className="w-full py-2.5 px-4 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+                    >
+                      {creatingInviteLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Gerando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Gerar Convite</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Show created invite callout box with copy button */}
+                {createdInvite && (
+                  <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-3 mt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-xs text-purple-900 uppercase">
+                        <CheckCircle2 className="w-4 h-4 text-purple-600" />
+                        <span>Convite Gerado para {createdInvite.email}!</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-purple-200 text-purple-800 text-[10px] font-black uppercase">
+                        Cargo: {createdInvite.role}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-purple-800">
+                      Envie este link direto de cadastro para a pessoa convidada:
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${window.location.origin}/admin?invite=${createdInvite.token}`}
+                        className="w-full px-3 py-2 rounded-lg bg-white border border-purple-300 text-xs font-mono text-purple-950 font-bold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/admin?invite=${createdInvite.token}`);
+                          setCopiedInviteToken(createdInvite.token);
+                          setTimeout(() => setCopiedInviteToken(null), 3000);
+                        }}
+                        className="px-3.5 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                      >
+                        {copiedInviteToken === createdInvite.token ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copiar Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Table: Convites Ativos & Pendentes */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="font-black text-base uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-purple-600" />
+                    <span>Convites Enviados ({allInvites.length})</span>
+                  </div>
+                  <span className="text-xs text-slate-400 font-normal">
+                    Convites pendentes e histórico
+                  </span>
+                </h3>
+
+                {loadingInvitesAndUsers ? (
+                  <div className="py-8 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600" />
+                    <span className="text-xs font-bold uppercase">Carregando convites...</span>
+                  </div>
+                ) : allInvites.length === 0 ? (
+                  <p className="text-xs text-slate-500 font-bold uppercase py-4 text-center">
+                    Nenhum convite gerado até o momento.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-black uppercase tracking-wider">
+                          <th className="py-3 px-4">E-mail Convidado</th>
+                          <th className="py-3 px-4">Cargo Permissão</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">Data do Convite</th>
+                          <th className="py-3 px-4 text-center">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {allInvites.map((inv) => {
+                          const inviteUrl = `${window.location.origin}/admin?invite=${inv.token}`;
+                          const isCopied = copiedInviteToken === inv.token;
+
+                          return (
+                            <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-3 px-4 font-bold text-slate-900">{inv.email}</td>
+                              <td className="py-3 px-4">
+                                {inv.role === 'admin' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">
+                                    ADMIN
+                                  </span>
+                                ) : inv.role === 'media' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">
+                                    MÍDIA
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    INTERCESSÃO
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4">
+                                {inv.status === 'pending' ? (
+                                  <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold uppercase">
+                                    Pendente
+                                  </span>
+                                ) : inv.status === 'accepted' ? (
+                                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                                    Aceito
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase">
+                                    Expirado
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-slate-500">
+                                {new Date(inv.created_at).toLocaleDateString('pt-BR')}
+                              </td>
+                              <td className="py-3 px-4 text-center whitespace-nowrap">
+                                <div className="inline-flex items-center gap-2">
+                                  {inv.status === 'pending' && (
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(inviteUrl);
+                                        setCopiedInviteToken(inv.token);
+                                        setTimeout(() => setCopiedInviteToken(null), 3000);
+                                      }}
+                                      className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                                      title="Copiar Link do Convite"
+                                    >
+                                      {isCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                      <span>{isCopied ? 'Copiado' : 'Copiar Link'}</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => handleDeleteInvite(inv.id, inv.email)}
+                                    className="p-1 rounded text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                    title="Revogar Convite"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Table: Usuários Ativos do Dashboard */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+                <h3 className="font-black text-base uppercase text-slate-900 flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-600" />
+                    <span>Integrantes com Acesso Ativo ({allProfiles.length})</span>
+                  </div>
+                  <span className="text-xs text-slate-400 font-normal">
+                    Gerenciar cargos de usuários cadastrados
+                  </span>
+                </h3>
+
+                {loadingInvitesAndUsers ? (
+                  <div className="py-8 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600" />
+                    <span className="text-xs font-bold uppercase">Carregando usuários...</span>
+                  </div>
+                ) : allProfiles.length === 0 ? (
+                  <p className="text-xs text-slate-500 font-bold uppercase py-4 text-center">
+                    Nenhum usuário cadastrado na tabela de perfis.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-black uppercase tracking-wider">
+                          <th className="py-3 px-4">Nome / Usuário</th>
+                          <th className="py-3 px-4">E-mail</th>
+                          <th className="py-3 px-4">Cargo Atual</th>
+                          <th className="py-3 px-4">Alterar Cargo</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {allProfiles.map((prof) => (
+                          <tr key={prof.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-3 px-4 font-bold text-slate-900">
+                              <div className="flex items-center gap-2">
+                                <span>{prof.full_name || 'Usuário Sem Nome'}</span>
+                                {prof.id === user?.id && (
+                                  <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[9px] font-black uppercase">
+                                    Você
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600">{prof.email}</td>
+                            <td className="py-3 px-4">
+                              {prof.role === 'admin' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                                  <Crown className="w-3 h-3 text-purple-600" />
+                                  <span>Administrador</span>
+                                </span>
+                              ) : prof.role === 'media' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                                  <Radio className="w-3 h-3 text-blue-600" />
+                                  <span>Mídia</span>
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                                  <HeartHandshake className="w-3 h-3 text-emerald-600" />
+                                  <span>Intercessão</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4">
+                              <select
+                                value={prof.role}
+                                onChange={(e) => handleRoleChange(prof.id, prof.email, e.target.value as UserRole)}
+                                className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:outline-none focus:border-purple-600 cursor-pointer"
+                              >
+                                <option value="admin">Administrador</option>
+                                <option value="media">Mídia</option>
+                                <option value="intercession">Intercessão</option>
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
