@@ -10,6 +10,8 @@ import {
   addEvent,
   updateEvent,
   deleteEvent,
+  subscribeEventRegistrations,
+  deleteEventRegistration,
   subscribeSermons,
   addSermon,
   updateSermon,
@@ -55,7 +57,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -113,6 +115,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [sermons, setSermons] = useState<Sermon[]>([]);
   const [ministries, setMinistries] = useState<Ministry[]>([]);
   const [prayers, setPrayers] = useState<PrayerRequest[]>([]);
+  const [allRegistrations, setAllRegistrations] = useState<EventRegistration[]>([]);
+  const [selectedEventForRegistrations, setSelectedEventForRegistrations] = useState<ChurchEvent | null>(null);
+  const [registrationSearchQuery, setRegistrationSearchQuery] = useState('');
+  const [copiedRegistrations, setCopiedRegistrations] = useState(false);
 
   // Prayer Request Filter States
   const [prayerStatusFilter, setPrayerStatusFilter] = useState<'all' | 'pending' | 'prayed' | 'archived'>('all');
@@ -203,6 +209,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
     const unsubSched = subscribeSchedules((data) => setSchedules(data));
     const unsubEvts = subscribeEvents((data) => setEvents(data));
+    const unsubRegs = subscribeEventRegistrations((data) => setAllRegistrations(data));
     const unsubSermons = subscribeSermons((data) => setSermons(data));
     const unsubMin = subscribeMinistries((data) => setMinistries(data));
     const unsubPrayers = subscribePrayerRequests((data) => setPrayers(data));
@@ -223,6 +230,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     return () => {
       unsubSched();
       unsubEvts();
+      unsubRegs();
       unsubSermons();
       unsubMin();
       unsubPrayers();
@@ -693,6 +701,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     description: string;
     imageUrl: string;
     badge: string;
+    enableRegistration: boolean;
+    registrationDeadline?: string;
+    registrationLimit?: number;
+    registrationMessage?: string;
   }>({
     title: '',
     date: '',
@@ -701,6 +713,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     description: '',
     imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
     badge: 'CONFERÊNCIA',
+    enableRegistration: false,
+    registrationDeadline: '',
+    registrationLimit: undefined,
+    registrationMessage: '',
   });
 
   const openEventModal = (item?: ChurchEvent) => {
@@ -719,6 +735,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         description: item.description,
         imageUrl: item.imageUrl,
         badge: item.badge,
+        enableRegistration: item.enableRegistration || false,
+        registrationDeadline: item.registrationDeadline || '',
+        registrationLimit: item.registrationLimit,
+        registrationMessage: item.registrationMessage || '',
       });
     } else {
       setEditingEvent(null);
@@ -730,6 +750,10 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         description: '',
         imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
         badge: 'CONFERÊNCIA',
+        enableRegistration: false,
+        registrationDeadline: '',
+        registrationLimit: undefined,
+        registrationMessage: '',
       });
     }
     setEventModalOpen(true);
@@ -2021,41 +2045,77 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {events.map((evt) => (
-                    <div key={evt.id} className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 flex flex-col justify-between">
-                      <div className="relative h-36 bg-slate-200 overflow-hidden">
-                        <img src={evt.imageUrl} alt={evt.title} className="w-full h-full object-cover" />
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#102bde] text-white font-black text-[10px] uppercase">
-                          {evt.badge}
-                        </span>
+                  {events.map((evt) => {
+                    const eventRegs = allRegistrations.filter((r) => r.eventId === evt.id);
+
+                    return (
+                      <div key={evt.id} className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 flex flex-col justify-between">
+                        <div className="relative h-36 bg-slate-200 overflow-hidden">
+                          <img src={evt.imageUrl} alt={evt.title} className="w-full h-full object-cover" />
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#102bde] text-white font-black text-[10px] uppercase">
+                            {evt.badge}
+                          </span>
+                        </div>
+                        <div className="p-4 space-y-2 flex-1">
+                          <h3 className="font-black text-base text-slate-900 uppercase leading-snug">{evt.title}</h3>
+                          <p className="text-xs font-bold text-[#102bde]">{evt.date} • {evt.time}</p>
+                          <p className="text-xs text-slate-600 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            <span>{evt.location}</span>
+                          </p>
+
+                          {/* Badge de Status de Inscrição */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {evt.enableRegistration ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase">
+                                <UserCheck className="w-3 h-3 text-emerald-600" />
+                                Inscrições Ativas
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] uppercase">
+                                Inscrições Desativadas
+                              </span>
+                            )}
+                            {evt.registrationLimit && evt.registrationLimit > 0 && (
+                              <span className="text-[10px] text-slate-500 font-bold">
+                                Limite: {evt.registrationLimit} vagas
+                              </span>
+                            )}
+                          </div>
+
+                          {evt.description && (
+                            <p className="text-xs text-slate-500 line-clamp-2 mt-1">{evt.description}</p>
+                          )}
+                        </div>
+                        <div className="p-3 border-t border-slate-200 bg-white flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedEventForRegistrations(evt);
+                              setRegistrationSearchQuery('');
+                            }}
+                            className="px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 text-[#102bde] text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
+                          >
+                            <Users className="w-3.5 h-3.5" /> Inscritos ({eventRegs.length})
+                          </button>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => openEventModal(evt)}
+                              className="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" /> Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEvent(evt.id, evt.title)}
+                              className="px-3 py-1.5 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Excluir
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="p-4 space-y-2 flex-1">
-                        <h3 className="font-black text-base text-slate-900 uppercase leading-snug">{evt.title}</h3>
-                        <p className="text-xs font-bold text-[#102bde]">{evt.date} • {evt.time}</p>
-                        <p className="text-xs text-slate-600 flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                          <span>{evt.location}</span>
-                        </p>
-                        {evt.description && (
-                          <p className="text-xs text-slate-500 line-clamp-2 mt-1">{evt.description}</p>
-                        )}
-                      </div>
-                      <div className="p-3 border-t border-slate-200 bg-white flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEventModal(evt)}
-                          className="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" /> Editar
-                        </button>
-                        <button
-                          onClick={() => handleDeleteEvent(evt.id, evt.title)}
-                          className="px-3 py-1.5 rounded bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Excluir
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3361,6 +3421,75 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 />
               </div>
 
+              {/* SEÇÃO DE CONFIGURAÇÃO DE INSCRIÇÕES */}
+              <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/50 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-sans font-black text-xs uppercase text-slate-900 flex items-center gap-1.5">
+                      <UserPlus className="w-4 h-4 text-[#102bde]" />
+                      <span>Inscrições Online para este Evento</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                      Ative para exibir o botão e formulário de inscrição no site.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={eventForm.enableRegistration}
+                      onChange={(e) => setEventForm({ ...eventForm, enableRegistration: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#102bde]"></div>
+                  </label>
+                </div>
+
+                {eventForm.enableRegistration && (
+                  <div className="pt-3 border-t border-blue-200/60 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold uppercase text-slate-700 text-[10px] mb-1">
+                          Limite de Vagas (Opcional)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="Ex: 50 (Vazio = Ilimitado)"
+                          value={eventForm.registrationLimit || ''}
+                          onChange={(e) => setEventForm({ ...eventForm, registrationLimit: e.target.value ? Number(e.target.value) : undefined })}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold uppercase text-slate-700 text-[10px] mb-1">
+                          Prazo Final de Inscrição (Opcional)
+                        </label>
+                        <input
+                          type="datetime-local"
+                          value={eventForm.registrationDeadline || ''}
+                          onChange={(e) => setEventForm({ ...eventForm, registrationDeadline: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold uppercase text-slate-700 text-[10px] mb-1">
+                        Instruções ou Avisos no Formulário (Opcional)
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Ex: 'Trazer bíblia e documento no dia do evento.'"
+                        value={eventForm.registrationMessage || ''}
+                        onChange={(e) => setEventForm({ ...eventForm, registrationMessage: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#102bde]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -4243,6 +4372,192 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE LISTA DE INSCRITOS DO EVENTO (ADMIN) */}
+      {selectedEventForRegistrations && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full p-6 space-y-6 max-h-[90vh] flex flex-col my-auto">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-100 text-[#102bde] font-bold text-xs uppercase mb-2">
+                  <Users className="w-4 h-4" />
+                  <span>Gestão de Inscritos</span>
+                </div>
+                <h2 className="font-sans font-black text-2xl uppercase text-slate-900">
+                  {selectedEventForRegistrations.title}
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  {selectedEventForRegistrations.date} • {selectedEventForRegistrations.time}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedEventForRegistrations(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            {(() => {
+              const eventRegs = allRegistrations.filter((r) => r.eventId === selectedEventForRegistrations.id);
+              const filteredRegs = eventRegs.filter((r) => {
+                if (!registrationSearchQuery) return true;
+                const q = registrationSearchQuery.toLowerCase();
+                return (
+                  r.fullName.toLowerCase().includes(q) ||
+                  r.email.toLowerCase().includes(q) ||
+                  r.phone.toLowerCase().includes(q)
+                );
+              });
+
+              const limit = selectedEventForRegistrations.registrationLimit;
+
+              const handleCopyList = () => {
+                const lines = [
+                  `LISTA DE INSCRITOS: ${selectedEventForRegistrations.title.toUpperCase()}`,
+                  `Data: ${selectedEventForRegistrations.date}`,
+                  `Total de Inscritos: ${eventRegs.length}${limit ? ` / Limite: ${limit}` : ''}`,
+                  `----------------------------------------------------`,
+                  ...eventRegs.map((r, i) => `${i + 1}. ${r.fullName} | Tel: ${r.phone} | Email: ${r.email}${r.notes ? ` (Obs: ${r.notes})` : ''}`),
+                ].join('\n');
+
+                navigator.clipboard.writeText(lines);
+                setCopiedRegistrations(true);
+                setTimeout(() => setCopiedRegistrations(false), 2500);
+              };
+
+              return (
+                <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+                  {/* Stats */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Total de Inscritos</span>
+                      <span className="text-2xl font-black text-slate-900">{eventRegs.length}</span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Limite de Vagas</span>
+                      <span className="text-2xl font-black text-slate-900">
+                        {limit ? `${limit} vagas` : 'Ilimitado'}
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Status das Inscrições</span>
+                      <span className={`text-sm font-black uppercase ${selectedEventForRegistrations.enableRegistration ? 'text-emerald-600' : 'text-slate-500'}`}>
+                        {selectedEventForRegistrations.enableRegistration ? 'Inscrições Abertas' : 'Inscrições Fechadas'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filter & Copy */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome, e-mail ou telefone..."
+                        value={registrationSearchQuery}
+                        onChange={(e) => setRegistrationSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#102bde]"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleCopyList}
+                      disabled={eventRegs.length === 0}
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase flex items-center justify-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {copiedRegistrations ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span className="text-emerald-600">Lista Copiada!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-[#102bde]" />
+                          <span>Copiar Lista de Inscritos</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Table */}
+                  <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl bg-white min-h-[220px]">
+                    {filteredRegs.length === 0 ? (
+                      <div className="py-12 text-center text-slate-500 space-y-2">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                        <p className="font-bold text-xs uppercase">Nenhum participante inscrito.</p>
+                      </div>
+                    ) : (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500">
+                            <th className="py-2.5 px-4">#</th>
+                            <th className="py-2.5 px-4">Nome Completo</th>
+                            <th className="py-2.5 px-4">E-mail</th>
+                            <th className="py-2.5 px-4">Telefone</th>
+                            <th className="py-2.5 px-4">Observações</th>
+                            <th className="py-2.5 px-4">Data</th>
+                            <th className="py-2.5 px-4 text-right">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {filteredRegs.map((reg, idx) => (
+                            <tr key={reg.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-4 font-mono font-bold text-slate-400 text-[11px]">
+                                {idx + 1}
+                              </td>
+                              <td className="py-3 px-4 font-bold text-slate-900">
+                                {reg.fullName}
+                              </td>
+                              <td className="py-3 px-4 text-slate-600">
+                                {reg.email}
+                              </td>
+                              <td className="py-3 px-4 text-slate-700 font-medium">
+                                {reg.phone}
+                              </td>
+                              <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
+                                {reg.notes || '-'}
+                              </td>
+                              <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                                {new Date(reg.createdAt).toLocaleDateString('pt-BR')}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Remover a inscrição de ${reg.fullName}?`)) {
+                                      await deleteEventRegistration(reg.id);
+                                    }
+                                  }}
+                                  className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Remover Inscrição"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setSelectedEventForRegistrations(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs uppercase hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

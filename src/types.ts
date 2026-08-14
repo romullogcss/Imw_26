@@ -68,6 +68,21 @@ export interface ChurchEvent {
   imageUrl: string;
   badge: string;
   isFeatured?: boolean;
+  enableRegistration?: boolean;
+  registrationDeadline?: string;
+  registrationLimit?: number;
+  registrationMessage?: string;
+}
+
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  notes?: string;
+  status?: 'confirmed' | 'cancelled';
+  createdAt: string;
 }
 
 export interface Sermon {

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { 
   extractYoutubeId, 
@@ -40,7 +40,35 @@ function mapScheduleToDbPayload(data: Partial<ScheduleItem>): Record<string, any
   return payload;
 }
 
+function getLocalEventConfigs(): Record<string, Partial<ChurchEvent>> {
+  try {
+    const raw = localStorage.getItem('imw_event_configs');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalEventConfig(eventId: string, config: Partial<ChurchEvent>) {
+  try {
+    const all = getLocalEventConfigs();
+    all[eventId] = {
+      ...(all[eventId] || {}),
+      enableRegistration: config.enableRegistration,
+      registrationDeadline: config.registrationDeadline,
+      registrationLimit: config.registrationLimit,
+      registrationMessage: config.registrationMessage,
+    };
+    localStorage.setItem('imw_event_configs', JSON.stringify(all));
+  } catch (err) {
+    console.warn('[LocalEventConfig] Erro ao salvar:', err);
+  }
+}
+
 function mapEvent(row: any): ChurchEvent {
+  const localConfigs = getLocalEventConfigs();
+  const localCfg = localConfigs[String(row.id)] || {};
+
   return {
     id: String(row.id),
     title: row.title,
@@ -51,6 +79,12 @@ function mapEvent(row: any): ChurchEvent {
     imageUrl: row.image_url || row.imageUrl || '',
     badge: row.badge || '',
     isFeatured: row.is_featured ?? row.isFeatured ?? false,
+    enableRegistration: row.enable_registration ?? row.enableRegistration ?? localCfg.enableRegistration ?? false,
+    registrationDeadline: row.registration_deadline ?? row.registrationDeadline ?? localCfg.registrationDeadline ?? '',
+    registrationLimit: row.registration_limit !== undefined && row.registration_limit !== null
+      ? Number(row.registration_limit)
+      : (row.registrationLimit !== undefined ? Number(row.registrationLimit) : localCfg.registrationLimit),
+    registrationMessage: row.registration_message ?? row.registrationMessage ?? localCfg.registrationMessage ?? '',
   };
 }
 
@@ -65,6 +99,10 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
   if (data.badge !== undefined) payload.badge = data.badge;
   if (data.isFeatured !== undefined) payload.is_featured = data.isFeatured;
+  if (data.enableRegistration !== undefined) payload.enable_registration = data.enableRegistration;
+  if (data.registrationDeadline !== undefined) payload.registration_deadline = data.registrationDeadline;
+  if (data.registrationLimit !== undefined) payload.registration_limit = data.registrationLimit;
+  if (data.registrationMessage !== undefined) payload.registration_message = data.registrationMessage;
   return payload;
 }
 
@@ -468,16 +506,33 @@ export function subscribeEvents(callback: (items: ChurchEvent[]) => void) {
 
 export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
   const newId = `evt_${Date.now()}`;
+  saveLocalEventConfig(newId, data);
+
   const payload = mapEventToDbPayload(data);
   payload.id = newId;
   payload.created_at = new Date().toISOString();
   payload.updated_at = new Date().toISOString();
 
-  const { data: inserted, error } = await supabase
+  let { data: inserted, error } = await supabase
     .from('events')
     .insert(payload)
     .select('*')
     .single();
+
+  if (error && error.message.includes('schema cache')) {
+    delete payload.enable_registration;
+    delete payload.registration_deadline;
+    delete payload.registration_limit;
+    delete payload.registration_message;
+
+    const retry = await supabase
+      .from('events')
+      .insert(payload)
+      .select('*')
+      .single();
+    inserted = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error('[Supabase] Erro ao adicionar evento:', error);
@@ -489,14 +544,31 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
 }
 
 export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
+  saveLocalEventConfig(id, data);
+
   const payload = mapEventToDbPayload(data);
   payload.updated_at = new Date().toISOString();
 
-  const { data: updated, error } = await supabase
+  let { data: updated, error } = await supabase
     .from('events')
     .update(payload)
     .eq('id', id)
     .select('*');
+
+  if (error && error.message.includes('schema cache')) {
+    delete payload.enable_registration;
+    delete payload.registration_deadline;
+    delete payload.registration_limit;
+    delete payload.registration_message;
+
+    const retry = await supabase
+      .from('events')
+      .update(payload)
+      .eq('id', id)
+      .select('*');
+    updated = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error('[Supabase] Erro ao atualizar evento:', error);
@@ -520,6 +592,212 @@ export async function deleteEvent(id: string) {
 
   fetchAndNotifyEvents();
   return true;
+}
+
+// -------------------------------------------------------------
+// EVENT REGISTRATIONS
+// -------------------------------------------------------------
+
+const registrationListeners = new Set<(items: EventRegistration[]) => void>();
+let registrationsChannel: any = null;
+
+const REGISTRATIONS_LOCAL_KEY = 'imw_event_registrations';
+
+function getLocalRegistrations(): EventRegistration[] {
+  try {
+    const raw = localStorage.getItem(REGISTRATIONS_LOCAL_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalRegistrations(items: EventRegistration[]) {
+  try {
+    localStorage.setItem(REGISTRATIONS_LOCAL_KEY, JSON.stringify(items));
+  } catch (err) {
+    console.warn('[LocalRegistrations] Erro ao salvar:', err);
+  }
+}
+
+function mapEventRegistration(row: any): EventRegistration {
+  return {
+    id: String(row.id),
+    eventId: String(row.event_id || row.eventId),
+    fullName: row.full_name || row.fullName || '',
+    email: row.email || '',
+    phone: row.phone || '',
+    notes: row.notes || '',
+    status: row.status || 'confirmed',
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+  };
+}
+
+async function fetchAndNotifyRegistrations() {
+  try {
+    const { data, error } = await supabase
+      .from('event_registrations')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    let items: EventRegistration[] = [];
+    if (error) {
+      items = getLocalRegistrations();
+    } else if (data) {
+      items = data.map(mapEventRegistration);
+      const localItems = getLocalRegistrations();
+      const dbIds = new Set(items.map((i) => i.id));
+      const unsynced = localItems.filter((i) => !dbIds.has(i.id));
+      if (unsynced.length > 0) {
+        items = [...unsynced, ...items];
+      }
+    } else {
+      items = getLocalRegistrations();
+    }
+
+    saveLocalRegistrations(items);
+    registrationListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar event_registrations:', err);
+    const localItems = getLocalRegistrations();
+    registrationListeners.forEach((cb) => cb(localItems));
+  }
+}
+
+function initRegistrationsRealtime() {
+  if (!registrationsChannel) {
+    registrationsChannel = supabase
+      .channel('public:event_registrations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_registrations' }, () => {
+        fetchAndNotifyRegistrations();
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[Supabase Realtime] Canal public:event_registrations conectado com sucesso.');
+        }
+      });
+  }
+}
+
+export function subscribeEventRegistrations(callback: (items: EventRegistration[]) => void) {
+  registrationListeners.add(callback);
+  fetchAndNotifyRegistrations();
+  initRegistrationsRealtime();
+
+  return () => {
+    registrationListeners.delete(callback);
+    if (registrationListeners.size === 0 && registrationsChannel) {
+      supabase.removeChannel(registrationsChannel);
+      registrationsChannel = null;
+    }
+  };
+}
+
+export async function addEventRegistration(
+  event: ChurchEvent,
+  data: { fullName: string; email: string; phone: string; notes?: string }
+): Promise<EventRegistration> {
+  // 1. Check enableRegistration
+  if (!event.enableRegistration) {
+    throw new Error('As inscrições para este evento não estão ativadas.');
+  }
+
+  // 2. Check deadline
+  if (event.registrationDeadline && event.registrationDeadline.trim()) {
+    const deadlineDate = new Date(event.registrationDeadline);
+    if (!isNaN(deadlineDate.getTime()) && new Date() > deadlineDate) {
+      throw new Error('O prazo de inscrição para este evento já se encerrou.');
+    }
+  }
+
+  // Fetch current registrations
+  let currentRegs: EventRegistration[] = [];
+  try {
+    const { data: dbData } = await supabase
+      .from('event_registrations')
+      .select('*')
+      .eq('event_id', event.id);
+    if (dbData && dbData.length > 0) {
+      currentRegs = dbData.map(mapEventRegistration);
+    } else {
+      currentRegs = getLocalRegistrations().filter((r) => r.eventId === event.id);
+    }
+  } catch {
+    currentRegs = getLocalRegistrations().filter((r) => r.eventId === event.id);
+  }
+
+  // 3. Check limit
+  if (event.registrationLimit && event.registrationLimit > 0) {
+    const activeCount = currentRegs.filter((r) => r.status !== 'cancelled').length;
+    if (activeCount >= event.registrationLimit) {
+      throw new Error('As vagas para este evento já estão esgotadas!');
+    }
+  }
+
+  // 4. Check duplicate email for same event
+  const cleanEmail = data.email.trim().toLowerCase();
+  const existing = currentRegs.find(
+    (r) => r.email.trim().toLowerCase() === cleanEmail && r.status !== 'cancelled'
+  );
+  if (existing) {
+    throw new Error('Este e-mail já está inscrito neste evento.');
+  }
+
+  const newId = `reg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = new Date().toISOString();
+
+  const newReg: EventRegistration = {
+    id: newId,
+    eventId: event.id,
+    fullName: data.fullName.trim(),
+    email: cleanEmail,
+    phone: data.phone.trim(),
+    notes: data.notes?.trim() || '',
+    status: 'confirmed',
+    createdAt: now,
+  };
+
+  const localItems = getLocalRegistrations();
+  saveLocalRegistrations([newReg, ...localItems]);
+
+  try {
+    const payload = {
+      id: newId,
+      event_id: event.id,
+      full_name: newReg.fullName,
+      email: newReg.email,
+      phone: newReg.phone,
+      notes: newReg.notes,
+      status: 'confirmed',
+      created_at: now,
+    };
+
+    const { error } = await supabase.from('event_registrations').insert([payload]);
+    if (error) {
+      console.warn('[Supabase] Aviso ao inserir em event_registrations:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao inserir em event_registrations:', err);
+  }
+
+  fetchAndNotifyRegistrations();
+  return newReg;
+}
+
+export async function deleteEventRegistration(id: string): Promise<void> {
+  const localItems = getLocalRegistrations().filter((r) => r.id !== id);
+  saveLocalRegistrations(localItems);
+
+  try {
+    const { error } = await supabase.from('event_registrations').delete().eq('id', id);
+    if (error) {
+      console.warn('[Supabase] Aviso ao deletar de event_registrations:', error.message);
+    }
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao deletar de event_registrations:', err);
+  }
+
+  fetchAndNotifyRegistrations();
 }
 
 // -------------------------------------------------------------
