@@ -57,7 +57,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -66,7 +66,8 @@ import {
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
   Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music,
-  Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck, UserPlus, Shield, Key, Copy, XCircle, UserCheck, Crown, Radio, HeartHandshake, UserX, ExternalLink, Eye, EyeOff
+  Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck, UserPlus, Shield, Key, Copy, XCircle, UserCheck, Crown, Radio, HeartHandshake, UserX, ExternalLink, Eye, EyeOff,
+  Tent, HeartPulse, ChevronDown, ChevronUp, FileText, User as UserIcon
 } from 'lucide-react';
 
 interface AdminProps {
@@ -178,6 +179,9 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [editUserRole, setEditUserRole] = useState<UserRole>('media');
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editUserError, setEditUserError] = useState<string | null>(null);
+
+  // Expanded Registrant Detail State in Modal
+  const [expandedRegId, setExpandedRegId] = useState<string | null>(null);
 
   // Status/Feedback messages
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -702,6 +706,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     imageUrl: string;
     badge: string;
     enableRegistration: boolean;
+    registrationType: RegistrationType;
     registrationDeadline?: string;
     registrationLimit?: number;
     registrationMessage?: string;
@@ -714,6 +719,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
     badge: 'CONFERÊNCIA',
     enableRegistration: false,
+    registrationType: 'none',
     registrationDeadline: '',
     registrationLimit: undefined,
     registrationMessage: '',
@@ -727,6 +733,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
     if (item) {
       setEditingEvent(item);
+      const regType: RegistrationType = item.registrationType || (item.enableRegistration ? 'simple' : 'none');
       setEventForm({
         title: item.title,
         date: item.date,
@@ -735,7 +742,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         description: item.description,
         imageUrl: item.imageUrl,
         badge: item.badge,
-        enableRegistration: item.enableRegistration || false,
+        enableRegistration: regType !== 'none',
+        registrationType: regType,
         registrationDeadline: item.registrationDeadline || '',
         registrationLimit: item.registrationLimit,
         registrationMessage: item.registrationMessage || '',
@@ -749,8 +757,9 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         location: 'Templo Principal',
         description: '',
         imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
-        badge: 'CONFERÊNCIA',
+        badge: 'RETIRO ESPIRITUAL',
         enableRegistration: false,
+        registrationType: 'none',
         registrationDeadline: '',
         registrationLimit: undefined,
         registrationMessage: '',
@@ -807,6 +816,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
       const payload = {
         ...eventForm,
+        enableRegistration: eventForm.registrationType !== 'none',
+        registrationType: eventForm.registrationType,
         imageUrl: finalImageUrl,
       };
 
@@ -2066,13 +2077,18 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
                           {/* Badge de Status de Inscrição */}
                           <div className="flex flex-wrap items-center gap-2 pt-1">
-                            {evt.enableRegistration ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase">
+                            {evt.registrationType === 'retreat' || (evt.enableRegistration && evt.registrationType === 'retreat') ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] uppercase border border-amber-300">
+                                <Tent className="w-3 h-3 text-amber-600" />
+                                Retiro Espiritual (Ficha Completa)
+                              </span>
+                            ) : evt.enableRegistration || evt.registrationType === 'simple' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] uppercase">
                                 <UserCheck className="w-3 h-3 text-emerald-600" />
-                                Inscrições Ativas
+                                Inscrição Simples
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] uppercase">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] uppercase">
                                 Inscrições Desativadas
                               </span>
                             )}
@@ -3422,30 +3438,95 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               </div>
 
               {/* SEÇÃO DE CONFIGURAÇÃO DE INSCRIÇÕES */}
-              <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/50 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="font-sans font-black text-xs uppercase text-slate-900 flex items-center gap-1.5">
-                      <UserPlus className="w-4 h-4 text-[#102bde]" />
-                      <span>Inscrições Online para este Evento</span>
-                    </h4>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                      Ative para exibir o botão e formulário de inscrição no site.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={eventForm.enableRegistration}
-                      onChange={(e) => setEventForm({ ...eventForm, enableRegistration: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#102bde]"></div>
-                  </label>
+              <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/50 space-y-4">
+                <div>
+                  <h4 className="font-sans font-black text-xs uppercase text-slate-900 flex items-center gap-1.5 mb-1">
+                    <UserPlus className="w-4 h-4 text-[#102bde]" />
+                    <span>Inscrições Online para este Evento</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Escolha se este evento possui formulário de inscrição e qual o modelo ideal.
+                  </p>
                 </div>
 
-                {eventForm.enableRegistration && (
+                <div className="space-y-2">
+                  <label className="block font-bold uppercase text-slate-700 text-[10px]">
+                    Tipo de Formulário de Inscrição *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Opção 1: Sem Inscrição */}
+                    <button
+                      type="button"
+                      onClick={() => setEventForm({ ...eventForm, enableRegistration: false, registrationType: 'none' })}
+                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        !eventForm.enableRegistration || eventForm.registrationType === 'none'
+                          ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <XCircle className="w-4 h-4 text-slate-400" />
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">Off</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs block leading-tight">Sem Inscrição</span>
+                        <span className="text-[10px] opacity-75 font-normal block mt-0.5">Apenas divulgação</span>
+                      </div>
+                    </button>
+
+                    {/* Opção 2: Inscrição Simples */}
+                    <button
+                      type="button"
+                      onClick={() => setEventForm({ ...eventForm, enableRegistration: true, registrationType: 'simple' })}
+                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        eventForm.enableRegistration && eventForm.registrationType === 'simple'
+                          ? 'border-[#102bde] bg-blue-600 text-white shadow-md'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <UserCheck className="w-4 h-4" />
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-700 text-blue-100">Simples</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs block leading-tight">Inscrição Simples</span>
+                        <span className="text-[10px] opacity-80 font-normal block mt-0.5">Nome, e-mail, telefone</span>
+                      </div>
+                    </button>
+
+                    {/* Opção 3: Retiro Espiritual */}
+                    <button
+                      type="button"
+                      onClick={() => setEventForm({ ...eventForm, enableRegistration: true, registrationType: 'retreat' })}
+                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                        eventForm.enableRegistration && eventForm.registrationType === 'retreat'
+                          ? 'border-amber-500 bg-amber-500 text-slate-950 shadow-md font-bold'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <Tent className="w-4 h-4 text-amber-950" />
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">Retiro</span>
+                      </div>
+                      <div>
+                        <span className="font-bold text-xs block leading-tight">Retiro Espiritual</span>
+                        <span className="text-[10px] opacity-85 font-normal block mt-0.5">Pernoite, saúde, responsável</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {eventForm.enableRegistration && eventForm.registrationType !== 'none' && (
                   <div className="pt-3 border-t border-blue-200/60 space-y-3">
+                    {eventForm.registrationType === 'retreat' && (
+                      <div className="p-3 bg-amber-100/70 border border-amber-300 rounded-xl text-amber-900 text-xs font-medium leading-relaxed flex items-start gap-2">
+                        <Tent className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Formulário Avançado de Retiro Ativado:</strong> O site solicitará RG/CPF, data de nascimento, contatos de emergência, histórico de saúde/alergias/medicamentos e autorização do responsável legal caso o participante seja menor de idade.
+                        </span>
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block font-bold uppercase text-slate-700 text-[10px] mb-1">
@@ -3480,7 +3561,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                       </label>
                       <textarea
                         rows={2}
-                        placeholder="Ex: 'Trazer bíblia e documento no dia do evento.'"
+                        placeholder="Ex: 'Trazer bíblia, roupas de cama e documento no dia da saída.'"
                         value={eventForm.registrationMessage || ''}
                         onChange={(e) => setEventForm({ ...eventForm, registrationMessage: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-800 focus:outline-none focus:border-[#102bde]"
@@ -4499,49 +4580,216 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                           <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500">
                             <th className="py-2.5 px-4">#</th>
                             <th className="py-2.5 px-4">Nome Completo</th>
-                            <th className="py-2.5 px-4">E-mail</th>
-                            <th className="py-2.5 px-4">Telefone</th>
-                            <th className="py-2.5 px-4">Observações</th>
+                            <th className="py-2.5 px-4">E-mail / Telefone</th>
+                            <th className="py-2.5 px-4">Tipo Inscrição</th>
                             <th className="py-2.5 px-4">Data</th>
                             <th className="py-2.5 px-4 text-right">Ação</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-xs">
-                          {filteredRegs.map((reg, idx) => (
-                            <tr key={reg.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="py-3 px-4 font-mono font-bold text-slate-400 text-[11px]">
-                                {idx + 1}
-                              </td>
-                              <td className="py-3 px-4 font-bold text-slate-900">
-                                {reg.fullName}
-                              </td>
-                              <td className="py-3 px-4 text-slate-600">
-                                {reg.email}
-                              </td>
-                              <td className="py-3 px-4 text-slate-700 font-medium">
-                                {reg.phone}
-                              </td>
-                              <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
-                                {reg.notes || '-'}
-                              </td>
-                              <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                                {new Date(reg.createdAt).toLocaleDateString('pt-BR')}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <button
-                                  onClick={async () => {
-                                    if (confirm(`Remover a inscrição de ${reg.fullName}?`)) {
-                                      await deleteEventRegistration(reg.id);
-                                    }
-                                  }}
-                                  className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-                                  title="Remover Inscrição"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {filteredRegs.map((reg, idx) => {
+                            const isExpanded = expandedRegId === reg.id;
+                            const isRetreatReg = reg.registrationType === 'retreat' || Boolean(reg.rgCpf || reg.emergencyContactName);
+
+                            return (
+                              <React.Fragment key={reg.id}>
+                                <tr className={`hover:bg-slate-50/80 transition-colors ${isExpanded ? 'bg-amber-50/40' : ''}`}>
+                                  <td className="py-3 px-4 font-mono font-bold text-slate-400 text-[11px]">
+                                    {idx + 1}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="font-bold text-slate-900 block">{reg.fullName}</span>
+                                    {reg.isMinor && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded mt-0.5">
+                                        Menor de Idade
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="text-slate-800 font-medium block">{reg.email}</span>
+                                    <span className="text-slate-500 text-[11px] block">{reg.phone}</span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    {isRetreatReg ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-black text-[10px] uppercase border border-amber-200">
+                                        <Tent className="w-3 h-3 text-amber-700" /> Retiro (Completo)
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-[#102bde] font-bold text-[10px] uppercase">
+                                        Simples
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
+                                    {new Date(reg.createdAt).toLocaleDateString('pt-BR')}
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      {isRetreatReg && (
+                                        <button
+                                          onClick={() => setExpandedRegId(isExpanded ? null : reg.id)}
+                                          className={`px-2.5 py-1.5 rounded text-xs font-bold uppercase flex items-center gap-1 cursor-pointer transition-colors ${
+                                            isExpanded
+                                              ? 'bg-amber-200 text-amber-950 hover:bg-amber-300'
+                                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                          }`}
+                                          title="Ver Ficha Completa do Retiro"
+                                        >
+                                          <FileText className="w-3.5 h-3.5 text-amber-700" />
+                                          <span>{isExpanded ? 'Ocultar' : 'Ficha'}</span>
+                                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={async () => {
+                                          if (confirm(`Remover a inscrição de ${reg.fullName}?`)) {
+                                            await deleteEventRegistration(reg.id);
+                                          }
+                                        }}
+                                        className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                                        title="Remover Inscrição"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* DETALHES EXPANDIDOS PARA INSCRIÇÃO DE RETIRO */}
+                                {isExpanded && isRetreatReg && (
+                                  <tr className="bg-amber-50/60 border-b border-amber-200">
+                                    <td colSpan={6} className="p-4 space-y-4">
+                                      <div className="bg-white border border-amber-200 rounded-xl p-4 shadow-sm space-y-4 text-xs">
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                          <div className="flex items-center gap-2 text-amber-900 font-black uppercase tracking-wider text-xs">
+                                            <Tent className="w-4 h-4 text-amber-600" />
+                                            <span>Ficha Completa de Inscrição — Retiro Espiritual</span>
+                                          </div>
+                                          <span className="text-[10px] font-bold text-slate-400">
+                                            ID: {reg.id}
+                                          </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          {/* Bloco 1: Dados Pessoais */}
+                                          <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
+                                            <span className="font-bold text-slate-800 uppercase text-[10px] tracking-wider block text-[#102bde]">
+                                              1. Identificação & Contato
+                                            </span>
+                                            <div className="space-y-1 text-slate-700">
+                                              <p><strong>Nome Completo:</strong> {reg.fullName}</p>
+                                              <p><strong>RG / CPF:</strong> {reg.rgCpf || 'Não informado'}</p>
+                                              <p><strong>Data de Nasc.:</strong> {reg.birthDate || 'Não informada'}</p>
+                                              <p><strong>Gênero:</strong> {reg.gender || 'Não informado'}</p>
+                                              <p><strong>Cidade/UF:</strong> {reg.cityState || 'Não informada'}</p>
+                                              <p><strong>E-mail:</strong> {reg.email}</p>
+                                              <p><strong>WhatsApp/Telefone:</strong> {reg.phone}</p>
+                                            </div>
+                                          </div>
+
+                                          {/* Bloco 2: Contato de Emergência */}
+                                          <div className="p-3 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
+                                            <span className="font-bold text-slate-800 uppercase text-[10px] tracking-wider block text-red-600 flex items-center gap-1">
+                                              <Phone className="w-3 h-3" /> 2. Contato de Emergência
+                                            </span>
+                                            <div className="space-y-1 text-slate-700">
+                                              <p><strong>Nome do Contato:</strong> {reg.emergencyContactName || 'Não informado'}</p>
+                                              <p><strong>Parentesco / Relação:</strong> {reg.emergencyRelationship || 'Não informado'}</p>
+                                              <p><strong>Telefone Emergência:</strong> <a href={`tel:${reg.emergencyPhone}`} className="text-[#102bde] underline font-bold">{reg.emergencyPhone || 'Não informado'}</a></p>
+                                              {reg.notes && (
+                                                <p className="mt-2 pt-2 border-t border-slate-200 italic text-slate-600">
+                                                  <strong>Observações Gerais:</strong> "{reg.notes}"
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          {/* Bloco 3: Saúde & Cuidados */}
+                                          <div className="p-3 bg-red-50/50 border border-red-200 rounded-xl space-y-2">
+                                            <span className="font-bold text-red-900 uppercase text-[10px] tracking-wider block flex items-center gap-1">
+                                              <HeartPulse className="w-3.5 h-3.5 text-red-600" /> 3. Ficha de Saúde e Medicamentos
+                                            </span>
+                                            <div className="space-y-1.5 text-slate-800">
+                                              <p>
+                                                <strong>Alergias:</strong>{' '}
+                                                {reg.hasAllergies ? (
+                                                  <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded">Sim: {reg.allergiesDetails}</span>
+                                                ) : (
+                                                  <span className="text-slate-600">Não</span>
+                                                )}
+                                              </p>
+                                              <p>
+                                                <strong>Uso de Medicamento Contínuo:</strong>{' '}
+                                                {reg.takesMedication ? (
+                                                  <span className="text-red-700 font-bold bg-red-100 px-1.5 py-0.5 rounded">Sim: {reg.medicationDetails}</span>
+                                                ) : (
+                                                  <span className="text-slate-600">Não</span>
+                                                )}
+                                              </p>
+                                              <p>
+                                                <strong>Restrição Alimentar:</strong>{' '}
+                                                {reg.hasDietaryRestrictions ? (
+                                                  <span className="text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded">Sim: {reg.dietaryDetails}</span>
+                                                ) : (
+                                                  <span className="text-slate-600">Não</span>
+                                                )}
+                                              </p>
+                                              {reg.healthNotes && (
+                                                <p className="text-slate-700">
+                                                  <strong>Outras Condições de Saúde:</strong> {reg.healthNotes}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          {/* Bloco 4: Responsável Legal (Menor de Idade) */}
+                                          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+                                            <span className="font-bold text-amber-900 uppercase text-[10px] tracking-wider block flex items-center gap-1">
+                                              <UserIcon className="w-3.5 h-3.5 text-amber-700" /> 4. Status de Idade & Responsável Legal
+                                            </span>
+                                            {reg.isMinor ? (
+                                              <div className="space-y-1 text-slate-800">
+                                                <p className="text-amber-900 font-bold bg-amber-200/80 px-2 py-0.5 rounded inline-block">
+                                                  Participante Menor de Idade
+                                                </p>
+                                                <p><strong>Nome do Responsável:</strong> {reg.guardianName || 'Não informado'}</p>
+                                                <p><strong>Parentesco:</strong> {reg.guardianRelationship || 'Não informado'}</p>
+                                                <p><strong>Telefone do Responsável:</strong> {reg.guardianPhone || 'Não informado'}</p>
+                                                <p><strong>RG/CPF do Responsável:</strong> {reg.guardianRgCpf || 'Não informado'}</p>
+                                              </div>
+                                            ) : (
+                                              <p className="text-slate-600 font-medium">Participante Maior de Idade.</p>
+                                            )}
+
+                                            <div className="pt-2 border-t border-amber-200/60 space-y-1 text-[11px] text-slate-600">
+                                              <p>
+                                                <strong>Aceitou Regras do Retiro:</strong>{' '}
+                                                {reg.acceptedRetreatTerms ? (
+                                                  <span className="text-emerald-700 font-bold">Sim (Confirmado)</span>
+                                                ) : (
+                                                  <span className="text-red-600 font-bold">Não</span>
+                                                )}
+                                              </p>
+                                              <p>
+                                                <strong>Autorização de Imagem e Som:</strong>{' '}
+                                                {reg.acceptedMediaRelease ? (
+                                                  <span className="text-emerald-700 font-bold">Sim (Autorizado)</span>
+                                                ) : (
+                                                  <span className="text-slate-500">Não autorizou</span>
+                                                )}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}

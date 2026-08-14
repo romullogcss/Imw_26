@@ -72,8 +72,73 @@ CREATE TABLE IF NOT EXISTS public.events (
   image_url TEXT,
   badge TEXT,
   is_featured BOOLEAN DEFAULT false,
+  enable_registration BOOLEAN DEFAULT false,
+  registration_type TEXT DEFAULT 'simple',
+  registration_deadline TIMESTAMPTZ,
+  registration_limit INT,
+  registration_message TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Alter table to ensure columns exist if events table already exists
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS enable_registration BOOLEAN DEFAULT false;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_type TEXT DEFAULT 'simple';
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_limit INT;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_message TEXT;
+
+-- TABELA DE INSCRIÇÕES EM EVENTOS E RETIROS ESPIRITUAIS
+CREATE TABLE IF NOT EXISTS public.event_registrations (
+  id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  registration_type TEXT DEFAULT 'simple',
+  full_name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  status TEXT DEFAULT 'confirmed',
+  notes TEXT,
+  
+  -- Campos para Retiro / Evento com Pernoite
+  birth_date TEXT,
+  document_id TEXT,
+  gender TEXT,
+  city TEXT,
+  
+  -- Saúde e Cuidados
+  has_allergies BOOLEAN DEFAULT false,
+  allergies_details TEXT,
+  has_medications BOOLEAN DEFAULT false,
+  medications_details TEXT,
+  health_conditions TEXT,
+  has_dietary_restrictions BOOLEAN DEFAULT false,
+  dietary_details TEXT,
+  medical_notes TEXT,
+  
+  -- Contato de Emergência
+  emergency_contact_name TEXT,
+  emergency_contact_relationship TEXT,
+  emergency_contact_phone TEXT,
+  emergency_contact_phone_alt TEXT,
+  
+  -- Menor de Idade & Responsável Legal
+  is_minor BOOLEAN DEFAULT false,
+  guardian_name TEXT,
+  guardian_phone TEXT,
+  guardian_email TEXT,
+  guardian_document TEXT,
+  guardian_authorization BOOLEAN DEFAULT false,
+  emergency_medical_consent BOOLEAN DEFAULT false,
+  
+  -- Consentimentos
+  truthful_info_consent BOOLEAN DEFAULT false,
+  terms_consent BOOLEAN DEFAULT false,
+  emergency_contact_consent BOOLEAN DEFAULT false,
+  
+  -- Backup estruturado JSONB
+  details JSONB,
+  
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS public.schedules (
@@ -286,6 +351,28 @@ ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ministries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.church_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_registrations ENABLE ROW LEVEL SECURITY;
+
+-- 4.1. EVENT REGISTRATIONS POLICIES
+-- Public (anonymous or authenticated) can submit new registrations
+DROP POLICY IF EXISTS "Public insert event_registrations" ON public.event_registrations;
+CREATE POLICY "Public insert event_registrations" ON public.event_registrations
+  FOR INSERT WITH CHECK (true);
+
+-- Only Admin and Media roles can view sensitive registration details (health, emergency contacts, guardians)
+DROP POLICY IF EXISTS "Admin and Media select event_registrations" ON public.event_registrations;
+CREATE POLICY "Admin and Media select event_registrations" ON public.event_registrations
+  FOR SELECT TO authenticated USING (public.is_admin() OR public.is_media());
+
+-- Only Admin and Media roles can update registrations
+DROP POLICY IF EXISTS "Admin and Media update event_registrations" ON public.event_registrations;
+CREATE POLICY "Admin and Media update event_registrations" ON public.event_registrations
+  FOR UPDATE TO authenticated USING (public.is_admin() OR public.is_media());
+
+-- Only Admin and Media roles can delete registrations
+DROP POLICY IF EXISTS "Admin and Media delete event_registrations" ON public.event_registrations;
+CREATE POLICY "Admin and Media delete event_registrations" ON public.event_registrations
+  FOR DELETE TO authenticated USING (public.is_admin() OR public.is_media());
 
 -- 1. PROFILES POLICIES
 DROP POLICY IF EXISTS "Users view own or admin views all" ON public.profiles;

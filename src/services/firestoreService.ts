@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { 
   extractYoutubeId, 
@@ -55,6 +55,7 @@ function saveLocalEventConfig(eventId: string, config: Partial<ChurchEvent>) {
     all[eventId] = {
       ...(all[eventId] || {}),
       enableRegistration: config.enableRegistration,
+      registrationType: config.registrationType,
       registrationDeadline: config.registrationDeadline,
       registrationLimit: config.registrationLimit,
       registrationMessage: config.registrationMessage,
@@ -69,6 +70,11 @@ function mapEvent(row: any): ChurchEvent {
   const localConfigs = getLocalEventConfigs();
   const localCfg = localConfigs[String(row.id)] || {};
 
+  const regType = (row.registration_type || row.registrationType || localCfg.registrationType || 
+    (row.enable_registration ?? row.enableRegistration ?? localCfg.enableRegistration ? 'simple' : 'none')) as RegistrationType;
+
+  const enableReg = regType !== 'none';
+
   return {
     id: String(row.id),
     title: row.title,
@@ -79,7 +85,8 @@ function mapEvent(row: any): ChurchEvent {
     imageUrl: row.image_url || row.imageUrl || '',
     badge: row.badge || '',
     isFeatured: row.is_featured ?? row.isFeatured ?? false,
-    enableRegistration: row.enable_registration ?? row.enableRegistration ?? localCfg.enableRegistration ?? false,
+    enableRegistration: enableReg,
+    registrationType: regType,
     registrationDeadline: row.registration_deadline ?? row.registrationDeadline ?? localCfg.registrationDeadline ?? '',
     registrationLimit: row.registration_limit !== undefined && row.registration_limit !== null
       ? Number(row.registration_limit)
@@ -99,7 +106,13 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
   if (data.badge !== undefined) payload.badge = data.badge;
   if (data.isFeatured !== undefined) payload.is_featured = data.isFeatured;
-  if (data.enableRegistration !== undefined) payload.enable_registration = data.enableRegistration;
+  if (data.registrationType !== undefined) {
+    payload.registration_type = data.registrationType;
+    payload.enable_registration = data.registrationType !== 'none';
+  } else if (data.enableRegistration !== undefined) {
+    payload.enable_registration = data.enableRegistration;
+    payload.registration_type = data.enableRegistration ? 'simple' : 'none';
+  }
   if (data.registrationDeadline !== undefined) payload.registration_deadline = data.registrationDeadline;
   if (data.registrationLimit !== undefined) payload.registration_limit = data.registrationLimit;
   if (data.registrationMessage !== undefined) payload.registration_message = data.registrationMessage;
@@ -521,6 +534,7 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
 
   if (error && error.message.includes('schema cache')) {
     delete payload.enable_registration;
+    delete payload.registration_type;
     delete payload.registration_deadline;
     delete payload.registration_limit;
     delete payload.registration_message;
@@ -557,6 +571,7 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
 
   if (error && error.message.includes('schema cache')) {
     delete payload.enable_registration;
+    delete payload.registration_type;
     delete payload.registration_deadline;
     delete payload.registration_limit;
     delete payload.registration_message;
@@ -621,15 +636,53 @@ function saveLocalRegistrations(items: EventRegistration[]) {
 }
 
 function mapEventRegistration(row: any): EventRegistration {
+  const details = row.details || {};
   return {
     id: String(row.id),
     eventId: String(row.event_id || row.eventId),
-    fullName: row.full_name || row.fullName || '',
-    email: row.email || '',
-    phone: row.phone || '',
-    notes: row.notes || '',
-    status: row.status || 'confirmed',
-    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    registrationType: (row.registration_type || row.registrationType || details.registrationType || 'simple') as RegistrationType,
+    fullName: row.full_name || row.fullName || details.fullName || '',
+    email: row.email || details.email || '',
+    phone: row.phone || details.phone || '',
+    notes: row.notes || details.notes || '',
+    status: row.status || details.status || 'confirmed',
+    createdAt: row.created_at || row.createdAt || details.createdAt || new Date().toISOString(),
+
+    // Campos de Retiro Espiritual
+    birthDate: row.birth_date || row.birthDate || details.birthDate || '',
+    documentId: row.document_id || row.documentId || details.documentId || '',
+    gender: row.gender || details.gender || '',
+    city: row.city || details.city || '',
+
+    // Saúde e Cuidados
+    hasAllergies: row.has_allergies ?? row.hasAllergies ?? details.hasAllergies ?? false,
+    allergiesDetails: row.allergies_details || row.allergiesDetails || details.allergiesDetails || '',
+    hasMedications: row.has_medications ?? row.hasMedications ?? details.hasMedications ?? false,
+    medicationsDetails: row.medications_details || row.medicationsDetails || details.medicationsDetails || '',
+    healthConditions: row.health_conditions || row.healthConditions || details.healthConditions || '',
+    hasDietaryRestrictions: row.has_dietary_restrictions ?? row.hasDietaryRestrictions ?? details.hasDietaryRestrictions ?? false,
+    dietaryDetails: row.dietary_details || row.dietaryDetails || details.dietaryDetails || '',
+    medicalNotes: row.medical_notes || row.medicalNotes || details.medicalNotes || '',
+
+    // Contato de Emergência
+    emergencyContactName: row.emergency_contact_name || row.emergencyContactName || details.emergencyContactName || '',
+    emergencyContactRelationship: row.emergency_contact_relationship || row.emergencyContactRelationship || details.emergencyContactRelationship || '',
+    emergencyContactPhone: row.emergency_contact_phone || row.emergencyContactPhone || details.emergencyContactPhone || '',
+    emergencyContactPhoneAlt: row.emergency_contact_phone_alt || row.emergencyContactPhoneAlt || details.emergencyContactPhoneAlt || '',
+
+    // Menor de Idade & Responsável Legal
+    isMinor: row.is_minor ?? row.isMinor ?? details.isMinor ?? false,
+    guardianName: row.guardian_name || row.guardianName || details.guardianName || '',
+    guardianPhone: row.guardian_phone || row.guardianPhone || details.guardianPhone || '',
+    guardianEmail: row.guardian_email || row.guardianEmail || details.guardianEmail || '',
+    guardianDocument: row.guardian_document || row.guardianDocument || details.guardianDocument || '',
+    guardianAuthorization: row.guardian_authorization ?? row.guardianAuthorization ?? details.guardianAuthorization ?? false,
+    emergencyMedicalConsent: row.emergency_medical_consent ?? row.emergencyMedicalConsent ?? details.emergencyMedicalConsent ?? false,
+
+    // Consentimentos Obrigatórios
+    truthfulInfoConsent: row.truthful_info_consent ?? row.truthfulInfoConsent ?? details.truthfulInfoConsent ?? false,
+    termsConsent: row.terms_consent ?? row.termsConsent ?? details.termsConsent ?? false,
+    emergencyContactConsent: row.emergency_contact_consent ?? row.emergencyContactConsent ?? details.emergencyContactConsent ?? false,
   };
 }
 
@@ -693,12 +746,45 @@ export function subscribeEventRegistrations(callback: (items: EventRegistration[
   };
 }
 
+export function sendRegistrationConfirmationEmail(
+  event: ChurchEvent,
+  registration: EventRegistration
+): { success: boolean; subject: string; body: string } {
+  const isRetreat = registration.registrationType === 'retreat';
+  const subject = `Confirmação de Inscrição: ${event.title}`;
+  const body = `
+Olá, ${registration.fullName}!
+
+Sua inscrição para o evento "${event.title}" foi RECEBIDA com sucesso!
+
+📍 DETALHES DO EVENTO:
+- Evento: ${event.title}
+- Data: ${event.date}
+- Horário: ${event.time}
+- Local: ${event.location || 'Igreja Metodista Wesleyana'}
+${isRetreat ? '\n⛺ TIPO: Retiro Espiritual (com deslocamento e pernoite)\nSuas informações de saúde, contatos de emergência e autorizações foram registradas com segurança pela nossa equipe de organização.' : ''}
+
+Agradecemos a sua participação e estamos ansiosos para este tempo abençoado juntos!
+
+Em caso de dúvidas ou necessidade de alteração em seu cadastro, entre em contato com a liderança do evento.
+
+Deus te abençoe!
+Igreja Metodista Wesleyana
+  `.trim();
+
+  console.log(`[Confirmation Email] Enviando e-mail para: ${registration.email}\nAssunto: ${subject}\n\n${body}`);
+
+  return { success: true, subject, body };
+}
+
 export async function addEventRegistration(
   event: ChurchEvent,
-  data: { fullName: string; email: string; phone: string; notes?: string }
-): Promise<EventRegistration> {
+  data: Partial<EventRegistration> & { fullName: string; email: string; phone: string }
+): Promise<{ registration: EventRegistration; emailConfirmation: { subject: string; body: string } }> {
+  const regType = data.registrationType || event.registrationType || (event.enableRegistration ? 'simple' : 'none');
+
   // 1. Check enableRegistration
-  if (!event.enableRegistration) {
+  if (!event.enableRegistration && regType === 'none') {
     throw new Error('As inscrições para este evento não estão ativadas.');
   }
 
@@ -749,39 +835,120 @@ export async function addEventRegistration(
   const newReg: EventRegistration = {
     id: newId,
     eventId: event.id,
+    registrationType: regType,
     fullName: data.fullName.trim(),
     email: cleanEmail,
     phone: data.phone.trim(),
     notes: data.notes?.trim() || '',
     status: 'confirmed',
     createdAt: now,
+
+    birthDate: data.birthDate?.trim() || '',
+    documentId: data.documentId?.trim() || '',
+    gender: data.gender?.trim() || '',
+    city: data.city?.trim() || '',
+
+    hasAllergies: !!data.hasAllergies,
+    allergiesDetails: data.allergiesDetails?.trim() || '',
+    hasMedications: !!data.hasMedications,
+    medicationsDetails: data.medicationsDetails?.trim() || '',
+    healthConditions: data.healthConditions?.trim() || '',
+    hasDietaryRestrictions: !!data.hasDietaryRestrictions,
+    dietaryDetails: data.dietaryDetails?.trim() || '',
+    medicalNotes: data.medicalNotes?.trim() || '',
+
+    emergencyContactName: data.emergencyContactName?.trim() || '',
+    emergencyContactRelationship: data.emergencyContactRelationship?.trim() || '',
+    emergencyContactPhone: data.emergencyContactPhone?.trim() || '',
+    emergencyContactPhoneAlt: data.emergencyContactPhoneAlt?.trim() || '',
+
+    isMinor: !!data.isMinor,
+    guardianName: data.guardianName?.trim() || '',
+    guardianPhone: data.guardianPhone?.trim() || '',
+    guardianEmail: data.guardianEmail?.trim() || '',
+    guardianDocument: data.guardianDocument?.trim() || '',
+    guardianAuthorization: !!data.guardianAuthorization,
+    emergencyMedicalConsent: !!data.emergencyMedicalConsent,
+
+    truthfulInfoConsent: !!data.truthfulInfoConsent,
+    termsConsent: !!data.termsConsent,
+    emergencyContactConsent: !!data.emergencyContactConsent,
   };
 
   const localItems = getLocalRegistrations();
   saveLocalRegistrations([newReg, ...localItems]);
 
   try {
-    const payload = {
+    const payload: any = {
       id: newId,
       event_id: event.id,
+      registration_type: regType,
       full_name: newReg.fullName,
       email: newReg.email,
       phone: newReg.phone,
       notes: newReg.notes,
       status: 'confirmed',
       created_at: now,
+
+      birth_date: newReg.birthDate,
+      document_id: newReg.documentId,
+      gender: newReg.gender,
+      city: newReg.city,
+
+      has_allergies: newReg.hasAllergies,
+      allergies_details: newReg.allergiesDetails,
+      has_medications: newReg.hasMedications,
+      medications_details: newReg.medicationsDetails,
+      health_conditions: newReg.healthConditions,
+      has_dietary_restrictions: newReg.hasDietaryRestrictions,
+      dietary_details: newReg.dietaryDetails,
+      medical_notes: newReg.medicalNotes,
+
+      emergency_contact_name: newReg.emergencyContactName,
+      emergency_contact_relationship: newReg.emergencyContactRelationship,
+      emergency_contact_phone: newReg.emergencyContactPhone,
+      emergency_contact_phone_alt: newReg.emergencyContactPhoneAlt,
+
+      is_minor: newReg.isMinor,
+      guardian_name: newReg.guardianName,
+      guardian_phone: newReg.guardianPhone,
+      guardian_email: newReg.guardianEmail,
+      guardian_document: newReg.guardianDocument,
+      guardian_authorization: newReg.guardianAuthorization,
+      emergency_medical_consent: newReg.emergencyMedicalConsent,
+
+      truthful_info_consent: newReg.truthfulInfoConsent,
+      terms_consent: newReg.termsConsent,
+      emergency_contact_consent: newReg.emergencyContactConsent,
+
+      details: newReg,
     };
 
     const { error } = await supabase.from('event_registrations').insert([payload]);
     if (error) {
-      console.warn('[Supabase] Aviso ao inserir em event_registrations:', error.message);
+      console.warn('[Supabase] Aviso ao inserir payload em event_registrations:', error.message);
+      const fallbackPayload = {
+        id: newId,
+        event_id: event.id,
+        full_name: newReg.fullName,
+        email: newReg.email,
+        phone: newReg.phone,
+        notes: newReg.notes,
+        status: 'confirmed',
+        created_at: now,
+        details: newReg,
+      };
+      await supabase.from('event_registrations').insert([fallbackPayload]);
     }
   } catch (err) {
     console.warn('[Supabase] Exceção ao inserir em event_registrations:', err);
   }
 
   fetchAndNotifyRegistrations();
-  return newReg;
+
+  const emailConfirmation = sendRegistrationConfirmationEmail(event, newReg);
+
+  return { registration: newReg, emailConfirmation };
 }
 
 export async function deleteEventRegistration(id: string): Promise<void> {

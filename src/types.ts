@@ -58,6 +58,8 @@ export interface ScheduleItem {
   isHighlight?: boolean;
 }
 
+export type RegistrationType = 'none' | 'simple' | 'retreat';
+
 export interface ChurchEvent {
   id: string;
   title: string;
@@ -69,6 +71,7 @@ export interface ChurchEvent {
   badge: string;
   isFeatured?: boolean;
   enableRegistration?: boolean;
+  registrationType?: RegistrationType;
   registrationDeadline?: string;
   registrationLimit?: number;
   registrationMessage?: string;
@@ -77,12 +80,49 @@ export interface ChurchEvent {
 export interface EventRegistration {
   id: string;
   eventId: string;
+  registrationType?: RegistrationType;
   fullName: string;
   email: string;
   phone: string;
   notes?: string;
   status?: 'confirmed' | 'cancelled';
   createdAt: string;
+
+  // Campos Avançados para Retiro Espiritual
+  birthDate?: string;
+  documentId?: string; // RG ou CPF
+  gender?: string;
+  city?: string;
+
+  // Saúde e Cuidados
+  hasAllergies?: boolean;
+  allergiesDetails?: string;
+  hasMedications?: boolean;
+  medicationsDetails?: string;
+  healthConditions?: string;
+  hasDietaryRestrictions?: boolean;
+  dietaryDetails?: string;
+  medicalNotes?: string;
+
+  // Contato de Emergência
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactPhone?: string;
+  emergencyContactPhoneAlt?: string;
+
+  // Menor de Idade & Responsável Legal
+  isMinor?: boolean;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  guardianDocument?: string;
+  guardianAuthorization?: boolean;
+  emergencyMedicalConsent?: boolean;
+
+  // Consentimentos Obrigatórios
+  truthfulInfoConsent?: boolean;
+  termsConsent?: boolean;
+  emergencyContactConsent?: boolean;
 }
 
 export interface Sermon {
