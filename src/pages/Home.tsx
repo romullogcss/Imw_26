@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageId, Sermon, ScheduleItem } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
 import { subscribeSermons, subscribeSchedules } from '../services/firestoreService';
+import { formatDateToDisplay, generateGoogleCalendarUrl } from '../utils/dateUtils';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
   Clock, Users, Sparkles, Cross, ArrowRight, Video, Music,
@@ -50,38 +51,26 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
     const targetDate = new Date(now);
     
     if (dayOfWeek === 0) {
-      // Se hoje for domingo: se já passou das 20h, agenda para o próximo domingo
       if (now.getHours() >= 20) {
         targetDate.setDate(now.getDate() + 7);
       }
     } else {
-      // Se for de segunda a sábado: calcula os dias restantes até o domingo
       const daysUntilSunday = 7 - dayOfWeek;
       targetDate.setDate(now.getDate() + daysUntilSunday);
     }
 
-    // Horário do culto: 18:00 às 20:00
-    const startDate = new Date(targetDate);
-    startDate.setHours(18, 0, 0, 0);
+    const year = targetDate.getFullYear();
+    const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const day = String(targetDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
-    const endDate = new Date(targetDate);
-    endDate.setHours(20, 0, 0, 0);
-
-    const formatGCalUTC = (d: Date) => {
-      return d.toISOString().replace(/-|:|\.\d\d\d/g, '');
-    };
-
-    const title = 'Culto da Família';
-    const details = 'Culto da Família na IMW Cosmópolis';
-    const location = 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP';
-
-    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-      title
-    )}&dates=${formatGCalUTC(startDate)}/${formatGCalUTC(
-      endDate
-    )}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(
-      location
-    )}`;
+    const gcalUrl = generateGoogleCalendarUrl({
+      title: 'Culto da Família',
+      dateStr,
+      timeStr: '18:00 - 20:00',
+      location: 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP',
+      description: 'Culto da Família na Igreja Metodista Wesleyana em Cosmópolis',
+    });
 
     window.open(gcalUrl, '_blank', 'noopener,noreferrer');
   };
@@ -233,7 +222,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
                 <div className="flex flex-wrap items-center gap-4 text-xs font-sans text-slate-500">
                   <span className="text-[#102bde] font-bold uppercase">Pregador: {latestSermon.preacher}</span>
                   <span>•</span>
-                  <span>Data: {latestSermon.date}</span>
+                  <span>Data: {formatDateToDisplay(latestSermon.date)}</span>
                   <span>•</span>
                   <span className="text-slate-700 font-semibold">Base: {latestSermon.scripture}</span>
                 </div>

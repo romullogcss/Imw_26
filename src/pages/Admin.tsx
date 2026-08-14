@@ -57,6 +57,8 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
+import { formatDateToDisplay, formatDateToDb } from '../utils/dateUtils';
+import { DatePicker } from '../components/DatePicker';
 import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
@@ -2069,7 +2071,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                         </div>
                         <div className="p-4 space-y-2 flex-1">
                           <h3 className="font-black text-base text-slate-900 uppercase leading-snug">{evt.title}</h3>
-                          <p className="text-xs font-bold text-[#102bde]">{evt.date} • {evt.time}</p>
+                          <p className="text-xs font-bold text-[#102bde]">{formatDateToDisplay(evt.date)} • {evt.time}</p>
                           <p className="text-xs text-slate-600 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                             <span>{evt.location}</span>
@@ -2263,7 +2265,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                         <p className="text-xs font-bold text-[#102bde]">Pregador: {sermon.preacher}</p>
                         <div className="flex items-center justify-between text-xs text-slate-500">
                           <span>Texto: {sermon.scripture}</span>
-                          <span>{sermon.date}</span>
+                          <span>{formatDateToDisplay(sermon.date)}</span>
                         </div>
                       </div>
 
@@ -2580,13 +2582,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filtered.map((prayer) => {
-                      const formattedDate = new Date(prayer.createdAt).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      });
+                      const formattedDate = formatDateToDisplay(prayer.createdAt);
 
                       const cleanPhone = (prayer.phone || '').replace(/\D/g, '');
                       const whatsappUrl = cleanPhone
@@ -2982,7 +2978,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                                 )}
                               </td>
                               <td className="py-3 px-4 text-slate-500">
-                                {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('pt-BR') : '—'}
+                                {inv.createdAt ? formatDateToDisplay(inv.createdAt) : '—'}
                               </td>
                               <td className="py-3 px-4 text-center whitespace-nowrap">
                                 <div className="inline-flex items-center gap-2">
@@ -3299,13 +3295,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-bold uppercase text-slate-700 mb-1">Data (ex: 15 a 17 de Nov)</label>
-                  <input
-                    type="text"
+                  <DatePicker
+                    label="DATA DO EVENTO"
                     required
                     value={eventForm.date}
-                    onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
+                    onChange={(dbVal) => setEventForm({ ...eventForm, date: dbVal })}
+                    placeholder="DD-MM-YYYY"
                   />
                 </div>
 
@@ -3543,14 +3538,11 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                       </div>
 
                       <div>
-                        <label className="block font-bold uppercase text-slate-700 text-[10px] mb-1">
-                          Prazo Final de Inscrição (Opcional)
-                        </label>
-                        <input
-                          type="datetime-local"
+                        <DatePicker
+                          label="PRAZO FINAL DE INSCRIÇÃO (OPCIONAL)"
                           value={eventForm.registrationDeadline || ''}
-                          onChange={(e) => setEventForm({ ...eventForm, registrationDeadline: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
+                          onChange={(dbVal) => setEventForm({ ...eventForm, registrationDeadline: dbVal })}
+                          placeholder="DD-MM-YYYY"
                         />
                       </div>
                     </div>
@@ -3644,13 +3636,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
 
                 <div>
-                  <label className="block font-bold uppercase text-slate-700 mb-1">Data (ex: 10/08/2026)</label>
-                  <input
-                    type="text"
+                  <DatePicker
+                    label="DATA DA PREGAÇÃO"
                     required
                     value={sermonForm.date}
-                    onChange={(e) => setSermonForm({ ...sermonForm, date: e.target.value })}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
+                    onChange={(dbVal) => setSermonForm({ ...sermonForm, date: dbVal })}
+                    placeholder="DD-MM-YYYY"
                   />
                 </div>
               </div>
@@ -4473,7 +4464,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   {selectedEventForRegistrations.title}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium mt-1">
-                  {selectedEventForRegistrations.date} • {selectedEventForRegistrations.time}
+                  {formatDateToDisplay(selectedEventForRegistrations.date)} • {selectedEventForRegistrations.time}
                 </p>
               </div>
               <button
@@ -4502,7 +4493,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               const handleCopyList = () => {
                 const lines = [
                   `LISTA DE INSCRITOS: ${selectedEventForRegistrations.title.toUpperCase()}`,
-                  `Data: ${selectedEventForRegistrations.date}`,
+                  `Data: ${formatDateToDisplay(selectedEventForRegistrations.date)}`,
                   `Total de Inscritos: ${eventRegs.length}${limit ? ` / Limite: ${limit}` : ''}`,
                   `----------------------------------------------------`,
                   ...eventRegs.map((r, i) => `${i + 1}. ${r.fullName} | Tel: ${r.phone} | Email: ${r.email}${r.notes ? ` (Obs: ${r.notes})` : ''}`),
@@ -4621,7 +4612,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                                     )}
                                   </td>
                                   <td className="py-3 px-4 text-slate-400 text-[11px] whitespace-nowrap">
-                                    {new Date(reg.createdAt).toLocaleDateString('pt-BR')}
+                                    {formatDateToDisplay(reg.createdAt)}
                                   </td>
                                   <td className="py-3 px-4 text-right">
                                     <div className="flex items-center justify-end gap-1">
@@ -4679,7 +4670,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                                             <div className="space-y-1 text-slate-700">
                                               <p><strong>Nome Completo:</strong> {reg.fullName}</p>
                                               <p><strong>RG / CPF:</strong> {reg.rgCpf || 'Não informado'}</p>
-                                              <p><strong>Data de Nasc.:</strong> {reg.birthDate || 'Não informada'}</p>
+                                              <p><strong>Data de Nasc.:</strong> {formatDateToDisplay(reg.birthDate) || 'Não informada'}</p>
                                               <p><strong>Gênero:</strong> {reg.gender || 'Não informado'}</p>
                                               <p><strong>Cidade/UF:</strong> {reg.cityState || 'Não informada'}</p>
                                               <p><strong>E-mail:</strong> {reg.email}</p>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SERMONS_YOUTUBE, SPOTIFY_PLAYLIST } from '../data/churchData';
 import { subscribeSermons, subscribeChurchSettings, ChurchSettingsData } from '../services/firestoreService';
 import { Sermon } from '../types';
+import { formatDateToDisplay } from '../utils/dateUtils';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
 import { getSpotifyWebUrl } from '../utils/spotify';
@@ -94,7 +95,7 @@ export const SermonsPage: React.FC = () => {
 
               <div className="flex items-center gap-2 text-xs font-sans font-bold text-slate-600 bg-slate-100 px-4 py-2 rounded-xl border border-slate-200 uppercase">
                 <Calendar className="w-4 h-4 text-[#102bde]" />
-                <span>{activeVideo.date}</span>
+                <span>{formatDateToDisplay(activeVideo.date)}</span>
               </div>
             </div>
 
@@ -229,7 +230,7 @@ export const SermonsPage: React.FC = () => {
 
                         <div className="flex items-center justify-between text-[11px] font-sans text-slate-500 pt-2 border-t border-slate-100 uppercase font-medium">
                           <span>📖 {sermon.scripture}</span>
-                          <span>{sermon.date}</span>
+                          <span>{formatDateToDisplay(sermon.date)}</span>
                         </div>
                       </div>
                     </div>

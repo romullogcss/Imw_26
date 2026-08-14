@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS } from '../data/churchData';
 import { subscribeSchedules, subscribeEvents, addEventRegistration } from '../services/firestoreService';
 import { ScheduleItem, ChurchEvent } from '../types';
+import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl } from '../utils/dateUtils';
+import { DatePicker } from '../components/DatePicker';
 import { 
   Calendar, Clock, MapPin, Sparkles, Filter, 
   CheckCircle, Plus, Share2, Tag, ChevronRight, Info,
@@ -70,8 +72,8 @@ export const SchedulePage: React.FC = () => {
 
   const calculateAge = (dateStr: string): number | null => {
     if (!dateStr) return null;
-    const birth = new Date(dateStr);
-    if (isNaN(birth.getTime())) return null;
+    const birth = parseLocalDate(dateStr);
+    if (!birth || isNaN(birth.getTime())) return null;
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const m = today.getMonth() - birth.getMonth();
@@ -112,8 +114,16 @@ export const SchedulePage: React.FC = () => {
     ? scheduleList 
     : scheduleList.filter(item => item.day === selectedDay);
 
-  const handleAddToCalendar = (eventId: string, title: string) => {
-    setAddedCalendarId(eventId);
+  const handleAddToCalendar = (event: ChurchEvent) => {
+    const gcalUrl = generateGoogleCalendarUrl({
+      title: event.title,
+      dateStr: event.date,
+      timeStr: event.time,
+      location: event.location,
+      description: event.description,
+    });
+    window.open(gcalUrl, '_blank', 'noopener,noreferrer');
+    setAddedCalendarId(event.id);
     setTimeout(() => setAddedCalendarId(null), 3000);
   };
 
@@ -296,7 +306,7 @@ export const SchedulePage: React.FC = () => {
                       <div className="absolute bottom-4 left-4 right-4 text-white">
                         <div className="flex items-center gap-2 text-[#102bde] font-sans text-xs font-extrabold uppercase mb-1">
                           <Calendar className="w-4 h-4" />
-                          <span>{event.date}</span>
+                          <span>{formatDateToDisplay(event.date)}</span>
                         </div>
                         <h3 className="font-sans font-black text-2xl uppercase text-white">
                           {event.title}
@@ -324,7 +334,7 @@ export const SchedulePage: React.FC = () => {
 
                   <div className="p-6 pt-0 flex items-center justify-between gap-4 font-sans">
                     <button
-                      onClick={() => handleAddToCalendar(event.id, event.title)}
+                      onClick={() => handleAddToCalendar(event)}
                       className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs uppercase tracking-wider border border-slate-200 transition-colors cursor-pointer ${
                         !event.enableRegistration ? 'w-full' : ''
                       }`}
@@ -565,15 +575,13 @@ export const SchedulePage: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block font-bold uppercase text-slate-700 mb-1">
-                          Data de Nascimento *
-                        </label>
-                        <input
-                          type="date"
+                        <DatePicker
+                          label="DATA DE NASCIMENTO"
                           required
                           value={retreatForm.birthDate}
-                          onChange={(e) => handleBirthDateChange(e.target.value)}
-                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 text-xs focus:outline-none focus:border-[#102bde] bg-white"
+                          maxDate={formatDateToDb(new Date())}
+                          onChange={(dbVal) => handleBirthDateChange(dbVal)}
+                          placeholder="DD-MM-YYYY"
                         />
                         {retreatForm.birthDate && (
                           <span className="text-[11px] font-bold text-slate-500 mt-1 block">
