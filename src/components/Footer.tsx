@@ -1,6 +1,7 @@
-import React from 'react';
-import { PageId } from '../types';
-import { CHURCH_INFO } from '../data/churchData';
+import React, { useState, useEffect } from 'react';
+import { PageId, ScheduleItem } from '../types';
+import { CHURCH_INFO, WEEKLY_SCHEDULE } from '../data/churchData';
+import { subscribeSchedules } from '../services/firestoreService';
 import { Logo } from './Logo';
 import { 
   Cross, MapPin, Phone, Mail, Clock, Heart, 
@@ -13,6 +14,17 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenPrayerModal }) => {
+  const [schedulesList, setSchedulesList] = useState<ScheduleItem[]>(WEEKLY_SCHEDULE);
+
+  useEffect(() => {
+    const unsub = subscribeSchedules((items) => {
+      if (items && items.length > 0) {
+        setSchedulesList(items);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -115,41 +127,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenPrayerModal })
               Horários de Culto
             </h4>
             <ul className="space-y-3 text-sm">
-              <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Domingo - 09h00</span>
-                  <span className="text-slate-400 text-xs">Escola Bíblica Dominical (EBD)</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Domingo - 18h00</span>
-                  <span className="text-slate-400 text-xs">Culto da Família & Celebração</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Terça-feira - 19h30</span>
-                  <span className="text-slate-400 text-xs">Culto de Oração & Ensino</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Quinta-feira - 19h30</span>
-                  <span className="text-slate-400 text-xs">Culto de Doutrina & Vitória</span>
-                </div>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-white block">Sábado - 19h30</span>
-                  <span className="text-slate-400 text-xs">Culto de Jovens (Mocidade)</span>
-                </div>
-              </li>
+              {schedulesList.slice(0, 6).map((sch) => (
+                <li key={sch.id} className="flex items-start gap-2.5">
+                  <Clock className="w-4 h-4 text-[#102bde] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-white block">
+                      {sch.day} - {sch.time}
+                    </span>
+                    <span className="text-slate-400 text-xs">{sch.title}</span>
+                  </div>
+                </li>
+              ))}
             </ul>
           </div>
 

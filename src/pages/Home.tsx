@@ -32,7 +32,23 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
   }, []);
 
   const latestSermon = sermonsList[0];
-  const highlightedServices = scheduleList.filter(s => s.isHighlight || s.day === 'Domingo');
+
+  const dayOrder: Record<string, number> = {
+    'Domingo': 1,
+    'Segunda-feira': 2,
+    'Terça-feira': 3,
+    'Quarta-feira': 4,
+    'Quinta-feira': 5,
+    'Sexta-feira': 6,
+    'Sábado': 7,
+  };
+
+  const sortedServices = [...scheduleList].sort((a, b) => {
+    const orderA = dayOrder[a.day] || 99;
+    const orderB = dayOrder[b.day] || 99;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.time || '').localeCompare(b.time || '');
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
@@ -376,7 +392,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             </p>
           </div>
 
-          {highlightedServices.length === 0 ? (
+          {sortedServices.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center max-w-xl mx-auto shadow-sm">
               <Calendar className="w-10 h-10 text-[#102bde] mx-auto mb-3" />
               <h3 className="font-sans font-black text-lg text-slate-900 uppercase">
@@ -394,7 +410,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {highlightedServices.map((service) => (
+              {sortedServices.map((service) => (
                 <div
                   key={service.id}
                   className="bg-white border border-slate-200 rounded-2xl p-6 hover:border-[#102bde] transition-all shadow-sm hover:shadow-md group flex flex-col justify-between"
