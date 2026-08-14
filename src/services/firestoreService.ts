@@ -879,6 +879,24 @@ export async function addEventRegistration(
   saveLocalRegistrations([newReg, ...localItems]);
 
   try {
+    // Ensure event row exists in Supabase events table to avoid FK constraint issues
+    try {
+      await supabase.from('events').upsert({
+        id: event.id,
+        title: event.title,
+        date: event.date,
+        time: event.time,
+        location: event.location || '',
+        description: event.description || '',
+        image_url: event.imageUrl || '',
+        badge: event.badge || '',
+        enable_registration: true,
+        registration_type: regType,
+      }, { onConflict: 'id' });
+    } catch (evtErr) {
+      console.warn('[Supabase] Aviso ao registrar evento pai:', evtErr);
+    }
+
     const payload: any = {
       id: newId,
       event_id: event.id,
@@ -938,7 +956,10 @@ export async function addEventRegistration(
         created_at: now,
         details: newReg,
       };
-      await supabase.from('event_registrations').insert([fallbackPayload]);
+      const { error: err2 } = await supabase.from('event_registrations').insert([fallbackPayload]);
+      if (err2) {
+        console.error('[Supabase] Erro ao salvar inscrição no Supabase:', err2.message);
+      }
     }
   } catch (err) {
     console.warn('[Supabase] Exceção ao inserir em event_registrations:', err);
