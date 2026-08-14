@@ -43,6 +43,49 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
     'Sábado': 7,
   };
 
+  const handlePlanVisit = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    
+    const targetDate = new Date(now);
+    
+    if (dayOfWeek === 0) {
+      // Se hoje for domingo: se já passou das 20h, agenda para o próximo domingo
+      if (now.getHours() >= 20) {
+        targetDate.setDate(now.getDate() + 7);
+      }
+    } else {
+      // Se for de segunda a sábado: calcula os dias restantes até o domingo
+      const daysUntilSunday = 7 - dayOfWeek;
+      targetDate.setDate(now.getDate() + daysUntilSunday);
+    }
+
+    // Horário do culto: 18:00 às 20:00
+    const startDate = new Date(targetDate);
+    startDate.setHours(18, 0, 0, 0);
+
+    const endDate = new Date(targetDate);
+    endDate.setHours(20, 0, 0, 0);
+
+    const formatGCalUTC = (d: Date) => {
+      return d.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    };
+
+    const title = 'Culto da Família';
+    const details = 'Culto da Família na IMW Cosmópolis';
+    const location = 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP';
+
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+      title
+    )}&dates=${formatGCalUTC(startDate)}/${formatGCalUTC(
+      endDate
+    )}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(
+      location
+    )}`;
+
+    window.open(gcalUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const sortedServices = [...scheduleList].sort((a, b) => {
     const orderA = dayOrder[a.day] || 99;
     const orderB = dayOrder[b.day] || 99;
@@ -288,7 +331,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             <div 
-              onClick={() => onNavigate('contact')}
+              onClick={handlePlanVisit}
               className="bg-slate-50 border border-slate-200 hover:border-[#102bde] rounded-2xl p-6 transition-all cursor-pointer group shadow-sm hover:shadow-md flex flex-col justify-between"
             >
               <div>
@@ -299,11 +342,11 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
                   VISITAR ESTE DOMINGO
                 </h3>
                 <p className="text-slate-600 text-xs leading-relaxed font-medium">
-                  Confira nossos horários, localização no Google Maps e como chegar na nossa igreja.
+                  Confira nossos horários, localização no Google Maps e adicione o culto ao seu calendário.
                 </p>
               </div>
               <div className="mt-6 flex items-center gap-2 text-xs font-sans font-black text-[#102bde] uppercase tracking-widest">
-                <span>PLANEAR VISITA</span>
+                <span>PLANEJAR VISITA</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
