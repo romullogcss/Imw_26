@@ -82,12 +82,8 @@ export const SpecialEventsSlider: React.FC<SpecialEventsSliderProps> = ({ onNavi
         {/* Section Header */}
         <div className="flex items-end justify-between mb-8">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#102bde]/20 border border-[#102bde]/40 text-blue-300 font-sans text-[11px] font-bold uppercase tracking-widest mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>DESTAQUES DA CASA</span>
-            </div>
             <h2 className="font-sans font-black text-2xl sm:text-4xl uppercase tracking-tight text-white drop-shadow">
-              EVENTOS ESPECIAIS
+              FIQUE POR DENTRO DE NOSSA PROGRAMAÇÃO!
             </h2>
           </div>
 

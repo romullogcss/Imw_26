@@ -99,16 +99,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#102bde]/20 rounded-full blur-[140px] pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-blue-300 font-sans text-xs font-bold uppercase tracking-widest mb-6 shadow-sm"
-          >
-            <Zap className="w-3.5 h-3.5 text-blue-400 fill-blue-400/20" />
-            <span>{CHURCH_INFO.motto}</span>
-          </motion.div>
 
           <motion.h1 
             initial={{ opacity: 0, y: 25 }}
@@ -156,16 +146,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-10 flex flex-wrap items-center justify-center gap-4"
           >
-            <a
-              href="https://youtube.com/live/38EHVyRv4k0?feature=share"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-8 py-4 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2 transform hover:-translate-y-0.5"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>ASSISTIR PREGAÇÕES</span>
-            </a>
-
             <button
               onClick={() => onNavigate('schedule')}
               className="px-8 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md flex items-center gap-2 transform hover:-translate-y-0.5"
