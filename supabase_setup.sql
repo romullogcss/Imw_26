@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS public.sermons (
 
 CREATE TABLE IF NOT EXISTS public.events (
   id TEXT PRIMARY KEY,
+  slug TEXT,
   title TEXT NOT NULL,
   date TEXT,
   end_date TEXT,
@@ -83,12 +84,16 @@ CREATE TABLE IF NOT EXISTS public.events (
 );
 
 -- Alter table to ensure columns exist if events table already exists
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS slug TEXT;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS end_date TEXT;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS enable_registration BOOLEAN DEFAULT false;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_type TEXT DEFAULT 'simple';
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_limit INT;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_message TEXT;
+
+-- Notify PostgREST to reload schema cache
+NOTIFY pgrst, 'reload schema';
 
 -- TABELA DE INSCRIÇÕES EM EVENTOS E RETIROS ESPIRITUAIS
 CREATE TABLE IF NOT EXISTS public.event_registrations (

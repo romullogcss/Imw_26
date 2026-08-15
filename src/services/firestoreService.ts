@@ -106,10 +106,12 @@ function mapEvent(row: any): ChurchEvent {
 function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   const payload: Record<string, any> = {};
   if (data.id !== undefined) payload.id = data.id;
-  if (data.slug !== undefined) payload.slug = data.slug;
+  if (data.slug !== undefined && data.slug.trim() !== '') payload.slug = data.slug;
   if (data.title !== undefined) payload.title = data.title;
   if (data.date !== undefined) payload.date = data.date;
-  if (data.endDate !== undefined) payload.end_date = data.endDate;
+  if (data.endDate !== undefined && data.endDate !== null && data.endDate.trim() !== '') {
+    payload.end_date = data.endDate;
+  }
   if (data.time !== undefined) payload.time = data.time;
   if (data.location !== undefined) payload.location = data.location;
   if (data.description !== undefined) payload.description = data.description;
@@ -123,7 +125,9 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
     payload.enable_registration = data.enableRegistration;
     payload.registration_type = data.enableRegistration ? 'simple' : 'none';
   }
-  if (data.registrationDeadline !== undefined) payload.registration_deadline = data.registrationDeadline;
+  if (data.registrationDeadline !== undefined && data.registrationDeadline.trim() !== '') {
+    payload.registration_deadline = data.registrationDeadline;
+  }
   if (data.registrationLimit !== undefined) payload.registration_limit = data.registrationLimit;
   if (data.registrationMessage !== undefined) payload.registration_message = data.registrationMessage;
   return payload;
@@ -542,21 +546,66 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
     .select('*')
     .single();
 
-  if (error && (error.message.includes('schema cache') || error.message.includes('end_date') || error.message.includes('column'))) {
-    delete payload.end_date;
-    delete payload.enable_registration;
-    delete payload.registration_type;
-    delete payload.registration_deadline;
-    delete payload.registration_limit;
-    delete payload.registration_message;
+  if (error) {
+    const errStr = `${error.message || ''} ${error.details || ''} ${error.hint || ''} ${error.code || ''}`.toLowerCase();
+    const isSchemaError = 
+      errStr.includes('schema cache') || 
+      errStr.includes('end_date') || 
+      errStr.includes('slug') || 
+      errStr.includes('column') || 
+      errStr.includes('does not exist') ||
+      error.code === 'PGRST204' ||
+      error.code === '42703';
 
-    const retry = await supabase
-      .from('events')
-      .insert(payload)
-      .select('*')
-      .single();
-    inserted = retry.data;
-    error = retry.error;
+    if (isSchemaError) {
+      console.warn('[Supabase addEvent] Erro de schema detectado, tentando sem campos estendidos:', error.message);
+      
+      delete payload.end_date;
+      delete payload.slug;
+      delete payload.enable_registration;
+      delete payload.registration_type;
+      delete payload.registration_deadline;
+      delete payload.registration_limit;
+      delete payload.registration_message;
+
+      const retry1 = await supabase
+        .from('events')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (!retry1.error) {
+        inserted = retry1.data;
+        error = null;
+      } else {
+        const essentialPayload: Record<string, any> = {
+          id: newId,
+          created_at: payload.created_at,
+          updated_at: payload.updated_at,
+          title: payload.title || 'Novo Evento',
+          date: payload.date || '',
+          time: payload.time || '',
+          location: payload.location || '',
+          description: payload.description || '',
+          image_url: payload.image_url || '',
+          badge: payload.badge || '',
+          is_featured: payload.is_featured ?? false,
+        };
+
+        const retry2 = await supabase
+          .from('events')
+          .insert(essentialPayload)
+          .select('*')
+          .single();
+
+        if (!retry2.error) {
+          inserted = retry2.data;
+          error = null;
+        } else {
+          error = retry2.error;
+        }
+      }
+    }
   }
 
   if (error) {
@@ -580,21 +629,64 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
     .eq('id', id)
     .select('*');
 
-  if (error && (error.message.includes('schema cache') || error.message.includes('end_date') || error.message.includes('column'))) {
-    delete payload.end_date;
-    delete payload.enable_registration;
-    delete payload.registration_type;
-    delete payload.registration_deadline;
-    delete payload.registration_limit;
-    delete payload.registration_message;
+  if (error) {
+    const errStr = `${error.message || ''} ${error.details || ''} ${error.hint || ''} ${error.code || ''}`.toLowerCase();
+    const isSchemaError = 
+      errStr.includes('schema cache') || 
+      errStr.includes('end_date') || 
+      errStr.includes('slug') || 
+      errStr.includes('column') || 
+      errStr.includes('does not exist') ||
+      error.code === 'PGRST204' ||
+      error.code === '42703';
 
-    const retry = await supabase
-      .from('events')
-      .update(payload)
-      .eq('id', id)
-      .select('*');
-    updated = retry.data;
-    error = retry.error;
+    if (isSchemaError) {
+      console.warn('[Supabase updateEvent] Erro de schema detectado, tentando sem campos estendidos:', error.message);
+      
+      delete payload.end_date;
+      delete payload.slug;
+      delete payload.enable_registration;
+      delete payload.registration_type;
+      delete payload.registration_deadline;
+      delete payload.registration_limit;
+      delete payload.registration_message;
+
+      const retry1 = await supabase
+        .from('events')
+        .update(payload)
+        .eq('id', id)
+        .select('*');
+
+      if (!retry1.error) {
+        updated = retry1.data;
+        error = null;
+      } else {
+        const essentialPayload: Record<string, any> = {
+          updated_at: payload.updated_at,
+        };
+        if (payload.title !== undefined) essentialPayload.title = payload.title;
+        if (payload.date !== undefined) essentialPayload.date = payload.date;
+        if (payload.time !== undefined) essentialPayload.time = payload.time;
+        if (payload.location !== undefined) essentialPayload.location = payload.location;
+        if (payload.description !== undefined) essentialPayload.description = payload.description;
+        if (payload.image_url !== undefined) essentialPayload.image_url = payload.image_url;
+        if (payload.badge !== undefined) essentialPayload.badge = payload.badge;
+        if (payload.is_featured !== undefined) essentialPayload.is_featured = payload.is_featured;
+
+        const retry2 = await supabase
+          .from('events')
+          .update(essentialPayload)
+          .eq('id', id)
+          .select('*');
+
+        if (!retry2.error) {
+          updated = retry2.data;
+          error = null;
+        } else {
+          error = retry2.error;
+        }
+      }
+    }
   }
 
   if (error) {
