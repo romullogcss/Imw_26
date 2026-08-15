@@ -542,7 +542,8 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
     .select('*')
     .single();
 
-  if (error && error.message.includes('schema cache')) {
+  if (error && (error.message.includes('schema cache') || error.message.includes('end_date') || error.message.includes('column'))) {
+    delete payload.end_date;
     delete payload.enable_registration;
     delete payload.registration_type;
     delete payload.registration_deadline;
@@ -579,7 +580,8 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
     .eq('id', id)
     .select('*');
 
-  if (error && error.message.includes('schema cache')) {
+  if (error && (error.message.includes('schema cache') || error.message.includes('end_date') || error.message.includes('column'))) {
+    delete payload.end_date;
     delete payload.enable_registration;
     delete payload.registration_type;
     delete payload.registration_deadline;
