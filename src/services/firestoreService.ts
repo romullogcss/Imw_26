@@ -1315,22 +1315,32 @@ let settingsChannel: any = null;
 
 async function fetchAndNotifyChurchSettings() {
   try {
-    const { data, error } = await supabase
-      .from('settings')
+    let { data, error } = await supabase
+      .from('church_settings')
       .select('*')
-      .eq('id', 'church_info')
+      .eq('id', 'main')
       .maybeSingle();
+
+    if (error || !data) {
+      const fallback = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', 'church_info')
+        .maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     let settings: ChurchSettingsData = {};
     if (error) {
-      console.warn('[Supabase] Aviso ao buscar settings:', error.message);
+      console.warn('[Supabase] Aviso ao buscar church_settings:', error.message);
     } else if (data) {
       settings = mapSettings(data);
     }
 
     settingsListeners.forEach((cb) => cb(settings));
   } catch (err) {
-    console.warn('[Supabase] Exceção ao buscar settings:', err);
+    console.warn('[Supabase] Exceção ao buscar church_settings:', err);
     settingsListeners.forEach((cb) => cb({}));
   }
 }
@@ -1338,13 +1348,13 @@ async function fetchAndNotifyChurchSettings() {
 function initChurchSettingsRealtime() {
   if (!settingsChannel) {
     settingsChannel = supabase
-      .channel('public:settings')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+      .channel('public:church_settings')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'church_settings' }, () => {
         fetchAndNotifyChurchSettings();
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('[Supabase Realtime] Canal public:settings conectado com sucesso.');
+          console.log('[Supabase Realtime] Canal public:church_settings conectado com sucesso.');
         }
       });
   }
@@ -1366,17 +1376,25 @@ export function subscribeChurchSettings(callback: (settings: ChurchSettingsData)
 
 export async function updateChurchSettings(settings: ChurchSettingsData) {
   const payload = {
-    id: 'church_info',
+    id: 'main',
     logo_url: settings.logoUrl || '',
     spotify_url: settings.spotifyUrl || '',
     spotify_embed_url: settings.spotifyEmbedUrl || '',
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from('settings')
+  let { data, error } = await supabase
+    .from('church_settings')
     .upsert(payload)
     .select('*');
+
+  if (error) {
+    console.warn('[Supabase] Erro ao atualizar em church_settings, tentando em settings:', error.message);
+    const fallbackPayload = { ...payload, id: 'church_info' };
+    const retry = await supabase.from('settings').upsert(fallbackPayload).select('*');
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error('[Supabase] Erro ao atualizar configurações:', error);

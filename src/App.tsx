@@ -42,6 +42,23 @@ export default function App() {
   const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
 
   useEffect(() => {
+    const pageTitles: Record<PageId, string> = {
+      home: 'IMW Cosmópolis - Igreja Metodista Wesleyana',
+      history: 'Nossa História - IMW Cosmópolis',
+      ministries: 'Ministérios - IMW Cosmópolis',
+      schedule: 'Programação - IMW Cosmópolis',
+      sermons: 'Pregações & Sermões - IMW Cosmópolis',
+      contact: 'Fale Conosco - IMW Cosmópolis',
+      donations: 'Doações e Ofertas - IMW Cosmópolis',
+      admin: 'Painel Administrativo - IMW Cosmópolis',
+      'event-detail': 'Evento Especial - IMW Cosmópolis',
+    };
+    if (pageTitles[currentPage]) {
+      document.title = pageTitles[currentPage];
+    }
+  }, [currentPage]);
+
+  useEffect(() => {
     const syncRouteFromUrl = () => {
       const path = window.location.pathname.toLowerCase();
       if (path.startsWith('/admin')) {

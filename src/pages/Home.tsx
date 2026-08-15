@@ -4,6 +4,7 @@ import { CHURCH_INFO } from '../data/churchData';
 import { subscribeSermons, subscribeSchedules } from '../services/firestoreService';
 import { formatDateToDisplay, generateGoogleCalendarUrl } from '../utils/dateUtils';
 import { SpecialEventsSlider } from '../components/SpecialEventsSlider';
+import { RecentSpotifySermons } from '../components/RecentSpotifySermons';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
   Clock, Users, Sparkles, Cross, ArrowRight, Video, Music,
@@ -276,6 +277,13 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
             </div>
           )}
 
+        </div>
+      </section>
+
+      {/* RECENT SPOTIFY SERMONS PODCAST SECTION */}
+      <section className="py-16 md:py-20 bg-slate-50 border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <RecentSpotifySermons limit={3} />
         </div>
       </section>
 

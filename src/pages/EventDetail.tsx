@@ -101,6 +101,9 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
         return slug === eventSlug || slugify(e.title) === eventSlug || e.id === eventSlug;
       });
       setEvent(found || null);
+      if (found) {
+        document.title = `${found.title} - IMW Cosmópolis`;
+      }
       setLoading(false);
     });
     return () => unsub();
@@ -509,6 +512,18 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
                         if (!retreatForm.email.trim()) return setSignupError('Informe o E-mail de contato.');
                         if (!retreatForm.phone.trim()) return setSignupError('Informe o Telefone / WhatsApp.');
                         if (!retreatForm.documentId.trim()) return setSignupError('Informe o RG ou CPF.');
+                        if (!retreatForm.emergencyContactName.trim()) return setSignupError('Informe o Nome do Contato de Emergência.');
+                        if (!retreatForm.emergencyContactRelationship.trim()) return setSignupError('Informe o Grau de Parentesco do Contato de Emergência.');
+                        if (!retreatForm.emergencyContactPhone.trim()) return setSignupError('Informe o Telefone de Emergência.');
+
+                        if (retreatForm.isMinor) {
+                          if (!retreatForm.guardianName.trim()) return setSignupError('Para menores de 18 anos, informe o Nome do Responsável Legal.');
+                          if (!retreatForm.guardianPhone.trim()) return setSignupError('Informe o Telefone do Responsável Legal.');
+                          if (!retreatForm.guardianDocument.trim()) return setSignupError('Informe o RG ou CPF do Responsável Legal.');
+                        }
+
+                        if (!retreatForm.truthfulInfoConsent) return setSignupError('Você precisa declarar que todas as informações prestadas são verdadeiras.');
+                        if (!retreatForm.termsConsent) return setSignupError('Você precisa concordar com os termos de convivência do retiro.');
 
                         setSubmitting(true);
                         setSignupError(null);
@@ -540,6 +555,11 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
                             guardianPhone: retreatForm.guardianPhone.trim(),
                             guardianEmail: retreatForm.guardianEmail.trim(),
                             guardianDocument: retreatForm.guardianDocument.trim(),
+                            guardianAuthorization: retreatForm.isMinor,
+                            emergencyMedicalConsent: true,
+                            truthfulInfoConsent: retreatForm.truthfulInfoConsent,
+                            termsConsent: retreatForm.termsConsent,
+                            emergencyContactConsent: true,
                           });
                           setSignupSuccess(true);
                         } catch (err: any) {
@@ -631,10 +651,110 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
                         </div>
                       </div>
 
-                      {/* Section 2: Emergency Contact */}
+                      {/* Section 2: Minor Legal Guardian (If minor < 18) */}
+                      {retreatForm.isMinor && (
+                        <div className="space-y-4 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                          <div className="flex items-center gap-2 text-amber-900">
+                            <ShieldCheck className="w-5 h-5 text-amber-600" />
+                            <h3 className="font-sans font-black text-xs uppercase tracking-wider">
+                              RESPONSÁVEL LEGAL (PARTICIPANTE MENOR DE IDADE)
+                            </h3>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-sans font-black uppercase tracking-wider text-slate-700 mb-1">
+                              Nome do Responsável Legal *
+                            </label>
+                            <input
+                              type="text"
+                              required={retreatForm.isMinor}
+                              value={retreatForm.guardianName}
+                              onChange={(e) => setRetreatForm({ ...retreatForm, guardianName: e.target.value })}
+                              placeholder="Nome completo do pai, mãe ou tutor"
+                              className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-sm font-medium"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-sans font-black uppercase tracking-wider text-slate-700 mb-1">
+                                Telefone do Responsável *
+                              </label>
+                              <input
+                                type="tel"
+                                required={retreatForm.isMinor}
+                                value={retreatForm.guardianPhone}
+                                onChange={(e) => setRetreatForm({ ...retreatForm, guardianPhone: e.target.value })}
+                                placeholder="(19) 99999-9999"
+                                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-sm font-medium"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-sans font-black uppercase tracking-wider text-slate-700 mb-1">
+                                Documento (CPF ou RG) do Responsável *
+                              </label>
+                              <input
+                                type="text"
+                                required={retreatForm.isMinor}
+                                value={retreatForm.guardianDocument}
+                                onChange={(e) => setRetreatForm({ ...retreatForm, guardianDocument: e.target.value })}
+                                placeholder="000.000.000-00"
+                                className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 text-sm font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Section 3: Health & Special Care */}
+                      <div className="space-y-4">
+                        <h3 className="font-sans font-black text-xs uppercase tracking-wider text-emerald-700 border-b border-slate-200 pb-2 flex items-center gap-2">
+                          <HeartPulse className="w-4 h-4 text-emerald-600" />
+                          <span>SAÚDE E RESTRIÇÕES</span>
+                        </h3>
+                        <div className="space-y-3 text-xs font-medium text-slate-700">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={retreatForm.hasAllergies}
+                              onChange={(e) => setRetreatForm({ ...retreatForm, hasAllergies: e.target.checked })}
+                              className="w-4 h-4 rounded text-[#102bde] border-slate-300 focus:ring-[#102bde]"
+                            />
+                            <span>Possui alguma alergia (alimentar, medicamentosa, etc.)?</span>
+                          </label>
+                          {retreatForm.hasAllergies && (
+                            <input
+                              type="text"
+                              value={retreatForm.allergiesDetails}
+                              onChange={(e) => setRetreatForm({ ...retreatForm, allergiesDetails: e.target.value })}
+                              placeholder="Descreva as alergias"
+                              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-medium"
+                            />
+                          )}
+
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={retreatForm.hasMedications}
+                              onChange={(e) => setRetreatForm({ ...retreatForm, hasMedications: e.target.checked })}
+                              className="w-4 h-4 rounded text-[#102bde] border-slate-300 focus:ring-[#102bde]"
+                            />
+                            <span>Usa medicamentos de uso contínuo?</span>
+                          </label>
+                          {retreatForm.hasMedications && (
+                            <input
+                              type="text"
+                              value={retreatForm.medicationsDetails}
+                              onChange={(e) => setRetreatForm({ ...retreatForm, medicationsDetails: e.target.value })}
+                              placeholder="Nome do medicamento e dosagem"
+                              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-xs font-medium"
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Section 4: Emergency Contact */}
                       <div className="space-y-4">
                         <h3 className="font-sans font-black text-xs uppercase tracking-wider text-red-600 border-b border-slate-200 pb-2">
-                          2. CONTATO DE EMERGÊNCIA
+                          4. CONTATO DE EMERGÊNCIA
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
@@ -675,6 +795,31 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
                             />
                           </div>
                         </div>
+                      </div>
+
+                      {/* Section 5: Terms & Declarations */}
+                      <div className="space-y-3 pt-2 border-t border-slate-200">
+                        <label className="flex items-start gap-2.5 cursor-pointer text-xs font-medium text-slate-700">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={retreatForm.truthfulInfoConsent}
+                            onChange={(e) => setRetreatForm({ ...retreatForm, truthfulInfoConsent: e.target.checked })}
+                            className="w-4 h-4 mt-0.5 rounded text-[#102bde] border-slate-300 focus:ring-[#102bde]"
+                          />
+                          <span>Declaro que todas as informações acima são verdadeiras e precisas. *</span>
+                        </label>
+
+                        <label className="flex items-start gap-2.5 cursor-pointer text-xs font-medium text-slate-700">
+                          <input
+                            type="checkbox"
+                            required
+                            checked={retreatForm.termsConsent}
+                            onChange={(e) => setRetreatForm({ ...retreatForm, termsConsent: e.target.checked })}
+                            className="w-4 h-4 mt-0.5 rounded text-[#102bde] border-slate-300 focus:ring-[#102bde]"
+                          />
+                          <span>Concordo com os termos de convivência, horários e normas do retiro da IMW Cosmópolis. *</span>
+                        </label>
                       </div>
 
                       <button

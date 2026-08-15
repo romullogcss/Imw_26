@@ -73,6 +73,7 @@ export const PrayerModal: React.FC<PrayerModalProps> = ({ isOpen, onClose }) => 
 
             <button
               onClick={onClose}
+              aria-label="Fechar janela de pedido de oração"
               className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
