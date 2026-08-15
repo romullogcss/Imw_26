@@ -5,7 +5,6 @@ import { Sermon } from '../types';
 import { formatDateToDisplay } from '../utils/dateUtils';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
-import { RecentSpotifySermons } from '../components/RecentSpotifySermons';
 import { getSpotifyWebUrl } from '../utils/spotify';
 import { 
   Play, Youtube, Music, Search, Calendar, User, 
@@ -249,42 +248,59 @@ export const SermonsPage: React.FC = () => {
           )}
         </section>
 
-        {/* SECTION 3: RECENT SPOTIFY EPISODES & EMBEDDED PLAYER */}
-        <section className="space-y-8">
-          <RecentSpotifySermons limit={6} />
-
-          {/* Player de apoio incorporado */}
-          <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 text-slate-900 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-300">
-                  <Music className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-sans font-black text-lg uppercase text-slate-900">
-                    PLAYER OFICIAL DO SHOW DA IGREJA
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium">
-                    Ouça a playlist completa diretamente pelo tocador incorporado do Spotify.
-                  </p>
-                </div>
+        {/* SECTION 3: SPOTIFY PLAYLIST EMBEDDED PLAYER */}
+        <section className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200 text-slate-900 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-300">
+                <Music className="w-6 h-6" />
               </div>
-
-              <a
-                href={getSpotifyWebUrl(currentSpotifyUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-sans font-black text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer shrink-0"
-              >
-                <span>ABRIR NO APP SPOTIFY</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+              <div>
+                <span className="text-[11px] text-emerald-600 font-sans font-black uppercase tracking-widest block">
+                  OUVIR NO SPOTIFY
+                </span>
+                <h2 className="font-sans font-black text-2xl uppercase text-slate-900">
+                  PODCAST & PREGAÇÕES EM ÁUDIO
+                </h2>
+              </div>
             </div>
 
-            <SpotifyPlayer
-              spotifyUrl={currentSpotifyUrl}
-              title="Podcast Oficial IMW Cosmópolis no Spotify"
-            />
+            <a
+              href={getSpotifyWebUrl(currentSpotifyUrl)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-sans font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer shrink-0"
+            >
+              <span>ABRIR NO APP SPOTIFY</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          {/* Spotify Embedded Component */}
+          <SpotifyPlayer
+            spotifyUrl={currentSpotifyUrl}
+            title="Podcast Oficial IMW Cosmópolis no Spotify"
+          />
+
+          {/* Audio Tracks Summary */}
+          <div className="space-y-3 pt-2">
+            <h3 className="font-sans font-bold text-slate-700 text-xs uppercase flex items-center gap-2">
+              <Volume2 className="w-4 h-4 text-emerald-600" />
+              <span>Destaques da Playlist & Podcast:</span>
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {SPOTIFY_PLAYLIST.tracks.map((track) => (
+                <div 
+                  key={track.id}
+                  className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-sans space-y-1"
+                >
+                  <p className="font-extrabold text-slate-900 uppercase line-clamp-1">{track.title}</p>
+                  <p className="text-slate-500 uppercase text-[11px] font-medium">{track.preacherOrArtist}</p>
+                  <p className="text-emerald-600 font-extrabold text-[10px] uppercase">Duração: {track.duration}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
