@@ -3,6 +3,7 @@ import { PageId, Sermon, ScheduleItem } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
 import { subscribeSermons, subscribeSchedules } from '../services/firestoreService';
 import { formatDateToDisplay, generateGoogleCalendarUrl } from '../utils/dateUtils';
+import { SpecialEventsSlider } from '../components/SpecialEventsSlider';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
   Clock, Users, Sparkles, Cross, ArrowRight, Video, Music,
@@ -189,6 +190,9 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
 
         </div>
       </section>
+
+      {/* SPECIAL EVENTS HORIZONTAL CAROUSEL (FULL WIDTH, RIGHT AFTER HERO) */}
+      <SpecialEventsSlider onNavigate={onNavigate} />
 
       {/* ELEVATION SPOTLIGHT: LATEST SERMON */}
       <section className="py-16 md:py-24 bg-slate-100 border-b border-slate-200">

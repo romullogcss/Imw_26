@@ -577,7 +577,53 @@ export const WEEKLY_SCHEDULE: ScheduleItem[] = [
   },
 ];
 
-export const SPECIAL_EVENTS: ChurchEvent[] = [];
+export const SPECIAL_EVENTS: ChurchEvent[] = [
+  {
+    id: 'evt-1',
+    slug: 'conferencia-de-avivamento-2026',
+    title: 'Conferência de Avivamento 2026',
+    date: '2026-11-15',
+    time: '19:30',
+    location: 'Templo Principal - IMW Cosmópolis',
+    description: 'Dias intensos de louvor, adoração profética e ministração da Palavra de Deus para renovação espiritual de toda a igreja e famílias.',
+    imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=1200',
+    badge: 'CONFERÊNCIA',
+    isFeatured: true,
+    enableRegistration: true,
+    registrationType: 'simple',
+    registrationLimit: 250,
+  },
+  {
+    id: 'evt-2',
+    slug: 'retiro-espiritual-de-carnaval',
+    title: 'Retiro Espiritual de Carnaval',
+    date: '2026-02-28',
+    time: '08:00',
+    location: 'Sítio Recanto da Paz - Artur Nogueira / SP',
+    description: 'Um fim de semana inesquecível de imersão espiritual, comunhão profunda, oficinas para jovens e famílias, lazer e buscarmos a presença do Senhor.',
+    imageUrl: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=1200',
+    badge: 'RETIRO',
+    isFeatured: true,
+    enableRegistration: true,
+    registrationType: 'retreat',
+    registrationLimit: 120,
+    registrationDeadline: '2026-02-20',
+  },
+  {
+    id: 'evt-3',
+    slug: 'noite-de-louvor-e-adoracao',
+    title: 'Noite de Louvor & Adoração',
+    date: '2026-09-20',
+    time: '19:00',
+    location: 'Templo Principal - IMW Cosmópolis',
+    description: 'Uma noite especial dedicada exclusivamente ao louvor congregacional, adoração extravagante e oração comunitária.',
+    imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=1200',
+    badge: 'LOUVOR',
+    isFeatured: false,
+    enableRegistration: false,
+    registrationType: 'none',
+  },
+];
 
 export const SERMONS_YOUTUBE: Sermon[] = [];
 

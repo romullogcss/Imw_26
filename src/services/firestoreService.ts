@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
+import { slugify, getEventSlug } from '../utils/slugUtils';
 import { 
   extractYoutubeId, 
   getYoutubeEmbedUrl, 
@@ -54,6 +55,7 @@ function saveLocalEventConfig(eventId: string, config: Partial<ChurchEvent>) {
     const all = getLocalEventConfigs();
     all[eventId] = {
       ...(all[eventId] || {}),
+      slug: config.slug,
       enableRegistration: config.enableRegistration,
       registrationType: config.registrationType,
       registrationDeadline: config.registrationDeadline,
@@ -75,8 +77,12 @@ function mapEvent(row: any): ChurchEvent {
 
   const enableReg = regType !== 'none';
 
+  const rawSlug = row.slug || localCfg.slug || '';
+  const finalSlug = rawSlug ? slugify(rawSlug) : getEventSlug({ title: row.title, id: String(row.id) });
+
   return {
     id: String(row.id),
+    slug: finalSlug,
     title: row.title,
     date: row.date,
     time: row.time,
@@ -98,6 +104,7 @@ function mapEvent(row: any): ChurchEvent {
 function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   const payload: Record<string, any> = {};
   if (data.id !== undefined) payload.id = data.id;
+  if (data.slug !== undefined) payload.slug = data.slug;
   if (data.title !== undefined) payload.title = data.title;
   if (data.date !== undefined) payload.date = data.date;
   if (data.time !== undefined) payload.time = data.time;

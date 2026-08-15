@@ -1,4 +1,4 @@
-export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'sermons' | 'contact' | 'donations' | 'admin';
+export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'sermons' | 'contact' | 'donations' | 'admin' | 'event-detail';
 
 export interface Leader {
   id: string;
@@ -62,6 +62,7 @@ export type RegistrationType = 'none' | 'simple' | 'retreat';
 
 export interface ChurchEvent {
   id: string;
+  slug?: string;
   title: string;
   date: string;
   time: string;

@@ -17,33 +17,72 @@ import { SermonsPage } from './pages/Sermons';
 import { ContactPage } from './pages/Contact';
 import { DonationsPage } from './pages/Donations';
 import { AdminPage } from './pages/Admin';
+import { EventDetailPage } from './pages/EventDetail';
 
 export default function App() {
+  const [selectedEventSlug, setSelectedEventSlug] = useState<string>('');
+
   const [currentPage, setCurrentPage] = useState<PageId>(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/admin')) {
-      return 'admin';
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith('/admin')) {
+        return 'admin';
+      }
+      if (path.startsWith('/eventos-especiais/')) {
+        const parts = window.location.pathname.split('/eventos-especiais/');
+        if (parts[1]) {
+          return 'event-detail';
+        }
+      }
     }
     return 'home';
   });
+
   const [selectedMinistryId, setSelectedMinistryId] = useState<string | undefined>(undefined);
   const [isPrayerModalOpen, setIsPrayerModalOpen] = useState(false);
 
   useEffect(() => {
-    const handlePopState = () => {
-      if (window.location.pathname.toLowerCase().startsWith('/admin')) {
+    const syncRouteFromUrl = () => {
+      const path = window.location.pathname.toLowerCase();
+      if (path.startsWith('/admin')) {
         setCurrentPage('admin');
+      } else if (path.startsWith('/eventos-especiais/')) {
+        const parts = window.location.pathname.split('/eventos-especiais/');
+        const slug = parts[1] ? decodeURIComponent(parts[1]) : '';
+        if (slug) {
+          setSelectedEventSlug(slug);
+          setCurrentPage('event-detail');
+        } else {
+          setCurrentPage('schedule');
+        }
+      } else if (currentPage === 'event-detail' || currentPage === 'admin') {
+        setCurrentPage('home');
       }
     };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+
+    // Initialize slug if initial state was event-detail
+    if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().startsWith('/eventos-especiais/')) {
+      const parts = window.location.pathname.split('/eventos-especiais/');
+      if (parts[1]) {
+        setSelectedEventSlug(decodeURIComponent(parts[1]));
+      }
+    }
+
+    window.addEventListener('popstate', syncRouteFromUrl);
+    return () => window.removeEventListener('popstate', syncRouteFromUrl);
   }, []);
 
   const handleNavigate = (page: PageId, extraParam?: string) => {
     setCurrentPage(page);
     if (page === 'admin') {
       window.history.pushState(null, '', '/admin');
-    } else if (window.location.pathname.toLowerCase().startsWith('/admin')) {
-      window.history.pushState(null, '', '/');
+    } else if (page === 'event-detail' && extraParam) {
+      setSelectedEventSlug(extraParam);
+      window.history.pushState(null, '', `/eventos-especiais/${extraParam}`);
+    } else {
+      if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/');
+      }
     }
     if (page === 'ministries' && extraParam) {
       setSelectedMinistryId(extraParam);
@@ -97,6 +136,14 @@ export default function App() {
 
         {currentPage === 'donations' && (
           <DonationsPage />
+        )}
+
+        {currentPage === 'event-detail' && (
+          <EventDetailPage
+            eventSlug={selectedEventSlug}
+            onNavigate={handleNavigate}
+            onOpenPrayerModal={() => setIsPrayerModalOpen(true)}
+          />
         )}
       </main>
 
