@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   date TEXT,
+  end_date TEXT,
   time TEXT,
   location TEXT,
   description TEXT,
@@ -82,6 +83,7 @@ CREATE TABLE IF NOT EXISTS public.events (
 );
 
 -- Alter table to ensure columns exist if events table already exists
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS end_date TEXT;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS enable_registration BOOLEAN DEFAULT false;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_type TEXT DEFAULT 'simple';
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS } from '../data/churchData';
 import { subscribeSchedules, subscribeEvents, addEventRegistration } from '../services/firestoreService';
 import { ScheduleItem, ChurchEvent } from '../types';
-import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl } from '../utils/dateUtils';
+import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl, formatEventDateRange } from '../utils/dateUtils';
 import { DatePicker } from '../components/DatePicker';
 import { 
   Calendar, Clock, MapPin, Sparkles, Filter, 
@@ -304,9 +304,9 @@ export const SchedulePage: React.FC = () => {
                       </div>
 
                       <div className="absolute bottom-4 left-4 right-4 text-white">
-                        <div className="flex items-center gap-2 text-[#102bde] font-sans text-xs font-extrabold uppercase mb-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>{formatDateToDisplay(event.date)}</span>
+                        <div className="flex items-center gap-2 text-white font-sans text-xs font-extrabold uppercase mb-1 drop-shadow">
+                          <Calendar className="w-4 h-4 text-white shrink-0" />
+                          <span>{formatEventDateRange(event.date, event.endDate)}</span>
                         </div>
                         <h3 className="font-sans font-black text-2xl uppercase text-white">
                           {event.title}

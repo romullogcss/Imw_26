@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ChurchEvent, PageId } from '../types';
 import { subscribeEvents, addEventRegistration } from '../services/firestoreService';
-import { formatDateToDisplay, generateGoogleCalendarUrl, parseLocalDate } from '../utils/dateUtils';
+import { formatDateToDisplay, generateGoogleCalendarUrl, parseLocalDate, formatEventDateRange } from '../utils/dateUtils';
 import { getEventSlug, slugify } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
 import { 
@@ -270,7 +270,7 @@ export const EventDetailPage: React.FC<EventDetailProps> = ({ eventSlug, onNavig
                 <div>
                   <span className="text-[10px] font-sans font-black uppercase text-slate-600 block">DATA DO EVENTO</span>
                   <span className="text-sm font-extrabold text-slate-900">
-                    {formatDateToDisplay(event.date)}
+                    {formatEventDateRange(event.date, event.endDate)}
                   </span>
                 </div>
               </div>

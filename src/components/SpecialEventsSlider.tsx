@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChurchEvent, PageId } from '../types';
 import { subscribeEvents } from '../services/firestoreService';
 import { getEventSlug } from '../utils/slugUtils';
+import { formatEventDateRange } from '../utils/dateUtils';
 import { ChevronLeft, ChevronRight, Sparkles, Calendar } from 'lucide-react';
 
 interface SpecialEventsSliderProps {
@@ -157,8 +158,12 @@ export const SpecialEventsSlider: React.FC<SpecialEventsSliderProps> = ({ onNavi
                     </div>
                   )}
 
-                  {/* Event Title strictly centered/bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 p-6 z-10 space-y-2">
+                  {/* Event Date & Title strictly centered/bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6 z-10 space-y-1.5">
+                    <div className="flex items-center gap-2 text-white font-sans text-xs font-extrabold uppercase drop-shadow">
+                      <Calendar className="w-4 h-4 text-white shrink-0" />
+                      <span>{formatEventDateRange(evt.date, evt.endDate)}</span>
+                    </div>
                     <h3 className="font-sans font-black text-xl sm:text-2xl text-white uppercase tracking-tight leading-snug drop-shadow-md group-hover:text-blue-200 transition-colors">
                       {evt.title}
                     </h3>

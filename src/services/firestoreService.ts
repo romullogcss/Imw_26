@@ -56,6 +56,7 @@ function saveLocalEventConfig(eventId: string, config: Partial<ChurchEvent>) {
     all[eventId] = {
       ...(all[eventId] || {}),
       slug: config.slug,
+      endDate: config.endDate,
       enableRegistration: config.enableRegistration,
       registrationType: config.registrationType,
       registrationDeadline: config.registrationDeadline,
@@ -85,6 +86,7 @@ function mapEvent(row: any): ChurchEvent {
     slug: finalSlug,
     title: row.title,
     date: row.date,
+    endDate: row.end_date || row.endDate || localCfg.endDate || '',
     time: row.time,
     location: row.location,
     description: row.description,
@@ -107,6 +109,7 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   if (data.slug !== undefined) payload.slug = data.slug;
   if (data.title !== undefined) payload.title = data.title;
   if (data.date !== undefined) payload.date = data.date;
+  if (data.endDate !== undefined) payload.end_date = data.endDate;
   if (data.time !== undefined) payload.time = data.time;
   if (data.location !== undefined) payload.location = data.location;
   if (data.description !== undefined) payload.description = data.description;

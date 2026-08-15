@@ -65,6 +65,7 @@ export interface ChurchEvent {
   slug?: string;
   title: string;
   date: string;
+  endDate?: string;
   time: string;
   location: string;
   description: string;

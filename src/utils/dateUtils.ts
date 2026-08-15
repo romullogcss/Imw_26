@@ -45,6 +45,67 @@ export function formatDateToDisplay(dateValue?: string | Date | null): string {
   return str;
 }
 
+const PORTUGUESE_MONTHS = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
+
+/**
+ * Formats a single event date or date range for display in public listings and CMS previews.
+ * Examples:
+ * - Single date: "15 de Novembro de 2026"
+ * - Multi-day same month: "15 a 17 de Novembro de 2026"
+ * - Multi-day different months: "30 de Outubro a 02 de Novembro de 2026"
+ */
+export function formatEventDateRange(startDateStr?: string | null, endDateStr?: string | null): string {
+  if (!startDateStr || !startDateStr.trim()) return '';
+  const sTrim = startDateStr.trim();
+  const eTrim = endDateStr ? endDateStr.trim() : '';
+
+  // If start date is already a pre-formatted text string (e.g. contains ' a ' or ' de ') and no endDate given
+  if (!eTrim && (sTrim.toLowerCase().includes(' a ') || sTrim.toLowerCase().includes(' de '))) {
+    return sTrim;
+  }
+
+  const startD = parseLocalDate(sTrim);
+  const endD = eTrim ? parseLocalDate(eTrim) : null;
+
+  if (startD && !isNaN(startD.getTime())) {
+    const sDay = String(startD.getDate()).padStart(2, '0');
+    const sMonth = PORTUGUESE_MONTHS[startD.getMonth()];
+    const sYear = startD.getFullYear();
+
+    if (endD && !isNaN(endD.getTime())) {
+      const eDay = String(endD.getDate()).padStart(2, '0');
+      const eMonth = PORTUGUESE_MONTHS[endD.getMonth()];
+      const eYear = endD.getFullYear();
+
+      // Same day
+      if (sDay === eDay && startD.getMonth() === endD.getMonth() && sYear === eYear) {
+        return `${sDay} de ${sMonth} de ${sYear}`;
+      }
+      // Same month and year
+      if (startD.getMonth() === endD.getMonth() && sYear === eYear) {
+        return `${sDay} a ${eDay} de ${sMonth} de ${sYear}`;
+      }
+      // Same year, different months
+      if (sYear === eYear) {
+        return `${sDay} de ${sMonth} a ${eDay} de ${eMonth} de ${sYear}`;
+      }
+      // Different years
+      return `${sDay} de ${sMonth} de ${sYear} a ${eDay} de ${eMonth} de ${eYear}`;
+    }
+
+    return `${sDay} de ${sMonth} de ${sYear}`;
+  }
+
+  // Fallback if not a standard date format
+  if (eTrim) {
+    return `${sTrim} a ${eTrim}`;
+  }
+  return sTrim;
+}
+
 // Convert DD-MM-YYYY, Date, or ISO string to YYYY-MM-DD for database storage
 export function formatDateToDb(dateValue?: string | Date | null): string {
   if (!dateValue) return '';

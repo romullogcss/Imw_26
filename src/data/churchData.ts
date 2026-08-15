@@ -598,6 +598,7 @@ export const SPECIAL_EVENTS: ChurchEvent[] = [
     slug: 'retiro-espiritual-de-carnaval',
     title: 'Retiro Espiritual de Carnaval',
     date: '2026-02-28',
+    endDate: '2026-03-03',
     time: '08:00',
     location: 'Sítio Recanto da Paz - Artur Nogueira / SP',
     description: 'Um fim de semana inesquecível de imersão espiritual, comunhão profunda, oficinas para jovens e famílias, lazer e buscarmos a presença do Senhor.',

@@ -57,7 +57,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { formatDateToDisplay, formatDateToDb } from '../utils/dateUtils';
+import { formatDateToDisplay, formatDateToDb, formatEventDateRange } from '../utils/dateUtils';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
 import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
@@ -704,6 +704,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     title: string;
     slug?: string;
     date: string;
+    endDate?: string;
     time: string;
     location: string;
     description: string;
@@ -718,6 +719,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     title: '',
     slug: '',
     date: '',
+    endDate: '',
     time: '19:30',
     location: 'Templo Principal',
     description: '',
@@ -743,6 +745,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         title: item.title,
         slug: item.slug || getEventSlug(item),
         date: item.date,
+        endDate: item.endDate || '',
         time: item.time,
         location: item.location,
         description: item.description,
@@ -759,7 +762,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       setEventForm({
         title: '',
         slug: '',
-        date: '15 a 17 de Novembro de 2026',
+        date: '',
+        endDate: '',
         time: '19:30',
         location: 'Templo Principal',
         description: '',
@@ -2079,7 +2083,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                         </div>
                         <div className="p-4 space-y-2 flex-1">
                           <h3 className="font-black text-base text-slate-900 uppercase leading-snug">{evt.title}</h3>
-                          <p className="text-xs font-bold text-[#102bde]">{formatDateToDisplay(evt.date)} • {evt.time}</p>
+                          <p className="text-xs font-bold text-[#102bde]">{formatEventDateRange(evt.date, evt.endDate)} • {evt.time}</p>
                           <p className="text-xs text-slate-600 flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                             <span>{evt.location}</span>
@@ -3334,14 +3338,23 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <DatePicker
-                    label="DATA DO EVENTO"
+                    label="DATA DE INÍCIO"
                     required
                     value={eventForm.date}
                     onChange={(dbVal) => setEventForm({ ...eventForm, date: dbVal })}
                     placeholder="DD-MM-YYYY"
+                  />
+                </div>
+
+                <div>
+                  <DatePicker
+                    label="DATA FIM (OPCIONAL)"
+                    value={eventForm.endDate || ''}
+                    onChange={(dbVal) => setEventForm({ ...eventForm, endDate: dbVal })}
+                    placeholder="Para vários dias"
                   />
                 </div>
 
@@ -3356,6 +3369,15 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   />
                 </div>
               </div>
+
+              {(eventForm.date || eventForm.endDate) && (
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs flex items-center gap-2 text-slate-700 font-medium">
+                  <Calendar className="w-4 h-4 text-[#102bde] shrink-0" />
+                  <span>
+                    <strong className="uppercase text-[#102bde]">Prévia da Data no Site:</strong> {formatEventDateRange(eventForm.date, eventForm.endDate)}
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
