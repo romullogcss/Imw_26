@@ -503,7 +503,7 @@ async function fetchAndNotifyEvents() {
     let items: ChurchEvent[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar events:', error.message);
-      items = SPECIAL_EVENTS;
+      items = [];
     } else if (data && data.length > 0) {
       items = data.map(mapEvent);
     } else {
@@ -513,7 +513,7 @@ async function fetchAndNotifyEvents() {
     eventListeners.forEach((cb) => cb(items));
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar events:', err);
-    eventListeners.forEach((cb) => cb(SPECIAL_EVENTS));
+    eventListeners.forEach((cb) => cb([]));
   }
 }
 
@@ -728,7 +728,17 @@ export async function deleteEvent(id: string) {
     throw new Error(`Erro ao excluir evento no Supabase: ${error.message}`);
   }
 
-  fetchAndNotifyEvents();
+  try {
+    const localConfigs = getLocalEventConfigs();
+    if (localConfigs[id]) {
+      delete localConfigs[id];
+      localStorage.setItem('imw_event_configs', JSON.stringify(localConfigs));
+    }
+  } catch (err) {
+    console.warn('[LocalEventConfig] Erro ao limpar no delete:', err);
+  }
+
+  await fetchAndNotifyEvents();
   return true;
 }
 
@@ -1383,24 +1393,12 @@ export async function seedInitialFirestoreData(force = false) {
       }
     }
 
-    // 2. Seed Events (Garantir que eventos padrões, distritais e regionais estejam no Supabase)
-    const { data: evtData } = await supabase.from('events').select('id, title, slug');
+    // 2. Seed Events (Apenas insere eventos padrão se a tabela estiver 100% vazia ou forçado pelo usuário)
+    const { data: evtData } = await supabase.from('events').select('id');
     if (force || !evtData || evtData.length === 0) {
       for (const evt of SPECIAL_EVENTS) {
         const { id, ...rest } = evt;
         await addEvent(rest);
-      }
-    } else if (SPECIAL_EVENTS.length > 0) {
-      const existingTitles = new Set(evtData.map((e) => String(e.title || '').trim().toLowerCase()));
-      const existingSlugs = new Set(evtData.map((e) => String(e.slug || '').trim().toLowerCase()));
-      for (const evt of SPECIAL_EVENTS) {
-        const titleMatch = existingTitles.has(evt.title.trim().toLowerCase());
-        const slugMatch = evt.slug && existingSlugs.has(evt.slug.trim().toLowerCase());
-        if (!titleMatch && !slugMatch) {
-          console.log(`[Supabase Seed] Inserindo evento ausente no Supabase: ${evt.title} (${evt.eventType})`);
-          const { id, ...rest } = evt;
-          await addEvent(rest);
-        }
       }
     }
 

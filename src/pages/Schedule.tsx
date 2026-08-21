@@ -25,7 +25,7 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ onNavigate }) => {
 
   // Firestore live collections
   const [scheduleList, setScheduleList] = useState<ScheduleItem[]>(WEEKLY_SCHEDULE);
-  const [eventsList, setEventsList] = useState<ChurchEvent[]>(SPECIAL_EVENTS);
+  const [eventsList, setEventsList] = useState<ChurchEvent[]>([]);
 
   // Registration Modal State
   const [selectedEventForSignup, setSelectedEventForSignup] = useState<ChurchEvent | null>(null);

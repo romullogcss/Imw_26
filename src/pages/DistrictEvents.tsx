@@ -16,7 +16,7 @@ interface DistrictEventsPageProps {
 }
 
 export const DistrictEventsPage: React.FC<DistrictEventsPageProps> = ({ onNavigate }) => {
-  const [eventsList, setEventsList] = useState<ChurchEvent[]>(SPECIAL_EVENTS);
+  const [eventsList, setEventsList] = useState<ChurchEvent[]>([]);
   const [selectedEventForSignup, setSelectedEventForSignup] = useState<ChurchEvent | null>(null);
   const [signupForm, setSignupForm] = useState({ fullName: '', email: '', phone: '', notes: '' });
   const [signupSubmitting, setSignupSubmitting] = useState(false);
@@ -25,9 +25,7 @@ export const DistrictEventsPage: React.FC<DistrictEventsPageProps> = ({ onNaviga
 
   useEffect(() => {
     const unsubscribe = subscribeEvents((updatedEvents) => {
-      if (updatedEvents && updatedEvents.length > 0) {
-        setEventsList(updatedEvents);
-      }
+      setEventsList(updatedEvents || []);
     });
     return () => unsubscribe();
   }, []);
