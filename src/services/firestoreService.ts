@@ -1436,9 +1436,21 @@ export async function clearAllSchedules() {
 }
 
 export async function clearAllEvents() {
-  const { error } = await supabase.from('events').delete().neq('id', '0');
-  if (error) console.warn('[Supabase] Erro ao limpar events:', error);
-  fetchAndNotifyEvents();
+  const { error: errReg } = await supabase.from('event_registrations').delete().neq('id', '0');
+  if (errReg) console.warn('[Supabase] Erro ao limpar event_registrations:', errReg);
+
+  const { error: errEvt } = await supabase.from('events').delete().neq('id', '0');
+  if (errEvt) console.warn('[Supabase] Erro ao limpar events:', errEvt);
+
+  try {
+    localStorage.removeItem('imw_event_configs');
+    localStorage.removeItem('imw_events_cache');
+    localStorage.removeItem('imw_event_registrations');
+  } catch (err) {
+    console.warn('[LocalStorage] Erro ao limpar cache de eventos:', err);
+  }
+
+  await fetchAndNotifyEvents();
 }
 
 export async function clearAllSermons() {
@@ -1458,9 +1470,8 @@ export async function seedInitialFirestoreData(force = false) {
       }
     }
 
-    // 2. Seed Events (Apenas insere eventos padrão se a tabela estiver 100% vazia ou forçado pelo usuário)
-    const { data: evtData } = await supabase.from('events').select('id');
-    if (force || !evtData || evtData.length === 0) {
+    // 2. Seed Events (Apenas se explicitamente forçado pelo administrador)
+    if (force) {
       for (const evt of SPECIAL_EVENTS) {
         const { id, ...rest } = evt;
         await addEvent(rest);

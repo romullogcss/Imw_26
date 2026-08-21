@@ -10,6 +10,7 @@ import {
   addEvent,
   updateEvent,
   deleteEvent,
+  clearAllEvents,
   subscribeEventRegistrations,
   deleteEventRegistration,
   subscribeSermons,
@@ -873,6 +874,19 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       setStatusMsg({ type: 'success', text: 'Evento excluído com sucesso!' });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: 'Erro ao excluir evento: ' + err.message });
+    }
+  };
+
+  const handleClearAllEvents = async () => {
+    if (!confirm('ATENÇÃO: Tem certeza que deseja APAGAR TODOS OS EVENTOS do sistema? Esta ação removerá todos os eventos e inscrições associadas do banco de dados e do cache local. Esta ação NÃO afetará ministérios, membros, pregações ou usuários.')) {
+      return;
+    }
+    try {
+      await clearAllEvents();
+      setStatusMsg({ type: 'success', text: 'Todos os eventos e inscrições foram removidos do sistema com sucesso!' });
+    } catch (err: any) {
+      console.error('Erro ao limpar eventos:', err);
+      setStatusMsg({ type: 'error', text: 'Erro ao limpar eventos: ' + err.message });
     }
   };
 
@@ -2057,13 +2071,25 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   </h2>
                 </div>
 
-                <button
-                  onClick={() => openEventModal()}
-                  className="px-4 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>NOVO EVENTO</span>
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {events.length > 0 && (
+                    <button
+                      onClick={handleClearAllEvents}
+                      className="px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Apagar todos os eventos e inscrições do sistema"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>LIMPAR EVENTOS ({events.length})</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openEventModal()}
+                    className="px-4 py-2.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>NOVO EVENTO</span>
+                  </button>
+                </div>
               </div>
 
               {/* Scope Filter Bar in CMS */}
