@@ -148,6 +148,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [eventImagePreview, setEventImagePreview] = useState<string | null>(null);
   const [eventUploadProgress, setEventUploadProgress] = useState<number | null>(null);
   const [eventUploadError, setEventUploadError] = useState<string | null>(null);
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
 
   // Ministry Leader Image Upload State
   const [leaderPhotoFile, setLeaderPhotoFile] = useState<File | null>(null);
@@ -802,6 +803,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingEvent) return;
     if (!eventForm.title || !eventForm.date) return;
     setEventUploadError(null);
 
@@ -810,6 +812,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       return;
     }
 
+    setIsSavingEvent(true);
     try {
       let finalImageUrl = eventForm.imageUrl;
 
@@ -855,6 +858,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       console.error('Save event error:', err);
       setEventUploadError('Erro ao enviar imagem ou salvar evento: ' + (err.message || 'Falha de conexão.'));
     } finally {
+      setIsSavingEvent(false);
       setEventUploadProgress(null);
     }
   };
@@ -3708,14 +3712,19 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={eventUploadProgress !== null}
+                  disabled={isSavingEvent || eventUploadProgress !== null}
                   className={`px-5 py-2.5 rounded-xl font-black uppercase tracking-wider shadow-md flex items-center gap-2 transition-all ${
-                    eventUploadProgress !== null
+                    isSavingEvent || eventUploadProgress !== null
                       ? 'bg-slate-400 text-white cursor-not-allowed'
                       : 'bg-[#102bde] hover:bg-[#0d23b8] text-white cursor-pointer'
                   }`}
                 >
-                  {eventUploadProgress !== null ? (
+                  {isSavingEvent ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando evento...</span>
+                    </>
+                  ) : eventUploadProgress !== null ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Enviando ({eventUploadProgress}%)...</span>

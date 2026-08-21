@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SPECIAL_EVENTS, EVENT_HEADER_CONFIGS } from '../data/churchData';
+import { EVENT_HEADER_CONFIGS } from '../data/churchData';
 import { subscribeEvents, addEventRegistration } from '../services/firestoreService';
 import { ChurchEvent, PageId } from '../types';
 import { formatEventDateRange, generateGoogleCalendarUrl } from '../utils/dateUtils';

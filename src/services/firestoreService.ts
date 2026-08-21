@@ -498,14 +498,34 @@ async function fetchAndNotifyEvents() {
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('*');
+      .select('*')
+      .order('date', { ascending: true });
 
     let items: ChurchEvent[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar events:', error.message);
       items = [];
     } else if (data && data.length > 0) {
-      items = data.map(mapEvent);
+      const mapped = data.map(mapEvent);
+      
+      const seenIds = new Set<string>();
+      const seenSlugs = new Set<string>();
+
+      items = mapped.filter((evt) => {
+        const idKey = String(evt.id).trim();
+        const slugKey = (evt.slug || slugify(evt.title)).trim().toLowerCase();
+
+        if (seenIds.has(idKey)) {
+          return false;
+        }
+        if (slugKey && seenSlugs.has(slugKey)) {
+          return false;
+        }
+
+        seenIds.add(idKey);
+        if (slugKey) seenSlugs.add(slugKey);
+        return true;
+      });
     } else {
       items = [];
     }
@@ -547,10 +567,30 @@ export function subscribeEvents(callback: (items: ChurchEvent[]) => void) {
 }
 
 export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
-  const newId = `evt_${Date.now()}`;
-  saveLocalEventConfig(newId, data);
+  const finalSlug = data.slug ? slugify(data.slug) : slugify(data.title);
 
-  const payload = mapEventToDbPayload(data);
+  // Verificação preventiva contra duplicatas: se já existir evento com mesmo slug ou mesmo título + data
+  if (finalSlug) {
+    try {
+      const { data: existing } = await supabase
+        .from('events')
+        .select('id, title, slug, date')
+        .or(`slug.eq.${finalSlug},title.ilike.${data.title.trim()}`)
+        .eq('date', data.date);
+
+      if (existing && existing.length > 0) {
+        console.warn('[addEvent] Evento com mesmo título/slug e data já existente. Atualizando registro ID:', existing[0].id);
+        return await updateEvent(existing[0].id, { ...data, slug: finalSlug });
+      }
+    } catch (err) {
+      console.warn('[addEvent] Aviso na checagem de duplicatas:', err);
+    }
+  }
+
+  const newId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  saveLocalEventConfig(newId, { ...data, slug: finalSlug });
+
+  const payload = mapEventToDbPayload({ ...data, slug: finalSlug });
   payload.id = newId;
   payload.created_at = new Date().toISOString();
   payload.updated_at = new Date().toISOString();
@@ -630,8 +670,8 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
     throw new Error(`Erro ao salvar evento no Supabase: ${error.message}`);
   }
 
-  fetchAndNotifyEvents();
-  return inserted ? mapEvent(inserted) : { id: newId, ...data };
+  await fetchAndNotifyEvents();
+  return inserted ? mapEvent(inserted) : { id: newId, ...data, slug: finalSlug };
 }
 
 export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
@@ -713,19 +753,44 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
     throw new Error(`Erro ao atualizar evento no Supabase: ${error.message}`);
   }
 
-  fetchAndNotifyEvents();
+  if (!updated || updated.length === 0) {
+    const { data: checkExisting } = await supabase
+      .from('events')
+      .select('id')
+      .eq('id', id);
+
+    if (checkExisting && checkExisting.length > 0) {
+      console.error('[Supabase] Edição de evento bloqueada por RLS para o ID:', id);
+      throw new Error('Permissão negada pelo banco de dados (RLS) para atualizar este evento. Verifique suas credenciais de Administrador.');
+    }
+  }
+
+  await fetchAndNotifyEvents();
   return updated;
 }
 
 export async function deleteEvent(id: string) {
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabase
     .from('events')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('*');
 
   if (error) {
     console.error('[Supabase] Erro ao excluir evento:', error);
     throw new Error(`Erro ao excluir evento no Supabase: ${error.message}`);
+  }
+
+  if (!deletedRows || deletedRows.length === 0) {
+    const { data: checkExisting } = await supabase
+      .from('events')
+      .select('id')
+      .eq('id', id);
+
+    if (checkExisting && checkExisting.length > 0) {
+      console.error('[Supabase] Exclusão de evento bloqueada por RLS para o ID:', id);
+      throw new Error('Permissão negada pelo banco de dados (RLS) para excluir o evento. Verifique se você está autenticado como Administrador.');
+    }
   }
 
   try {
