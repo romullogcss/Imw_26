@@ -81,7 +81,18 @@ function mapEvent(row: any): ChurchEvent {
 
   const rawSlug = row.slug || localCfg.slug || '';
   const finalSlug = rawSlug ? slugify(rawSlug) : getEventSlug({ title: row.title, id: String(row.id) });
-  const eventType = (row.event_type || row.eventType || localCfg.eventType || 'local') as EventType;
+  let rawEventType = row.event_type || row.eventType || localCfg.eventType;
+  if (!rawEventType) {
+    const combinedText = `${row.badge || ''} ${row.title || ''} ${row.description || ''}`.toLowerCase();
+    if (combinedText.includes('distrital') || combinedText.includes('distrito')) {
+      rawEventType = 'distrital';
+    } else if (combinedText.includes('regional') || combinedText.includes('região') || combinedText.includes('regiao')) {
+      rawEventType = 'regional';
+    } else {
+      rawEventType = 'local';
+    }
+  }
+  const eventType = rawEventType as EventType;
 
   return {
     id: String(row.id),
@@ -1372,12 +1383,24 @@ export async function seedInitialFirestoreData(force = false) {
       }
     }
 
-    // 2. Seed Events
-    const { data: evtData } = await supabase.from('events').select('id');
-    if ((!evtData || evtData.length === 0) && SPECIAL_EVENTS.length > 0) {
+    // 2. Seed Events (Garantir que eventos padrões, distritais e regionais estejam no Supabase)
+    const { data: evtData } = await supabase.from('events').select('id, title, slug');
+    if (force || !evtData || evtData.length === 0) {
       for (const evt of SPECIAL_EVENTS) {
         const { id, ...rest } = evt;
         await addEvent(rest);
+      }
+    } else if (SPECIAL_EVENTS.length > 0) {
+      const existingTitles = new Set(evtData.map((e) => String(e.title || '').trim().toLowerCase()));
+      const existingSlugs = new Set(evtData.map((e) => String(e.slug || '').trim().toLowerCase()));
+      for (const evt of SPECIAL_EVENTS) {
+        const titleMatch = existingTitles.has(evt.title.trim().toLowerCase());
+        const slugMatch = evt.slug && existingSlugs.has(evt.slug.trim().toLowerCase());
+        if (!titleMatch && !slugMatch) {
+          console.log(`[Supabase Seed] Inserindo evento ausente no Supabase: ${evt.title} (${evt.eventType})`);
+          const { id, ...rest } = evt;
+          await addEvent(rest);
+        }
       }
     }
 
