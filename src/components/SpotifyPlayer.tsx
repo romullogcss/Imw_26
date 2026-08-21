@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Music, ExternalLink, AlertCircle } from 'lucide-react';
-import { parseSpotifyUrl, getSpotifyWebUrl, getSpotifyTypeLabel } from '../utils/spotify';
+import { parseSpotifyUrl, getSpotifyWebUrl } from '../utils/spotify';
 
 interface SpotifyPlayerProps {
   spotifyUrl: string | null | undefined;
@@ -67,11 +67,7 @@ export const SpotifyPlayer: React.FC<SpotifyPlayerProps> = ({
         />
       </div>
 
-      <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 font-medium">
-        <span className="flex items-center gap-1.5 uppercase font-bold text-emerald-700">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
-          {getSpotifyTypeLabel(info.type)}
-        </span>
+      <div className="flex items-center justify-end text-[11px] text-slate-500 px-1 font-medium">
         <a
           href={webUrl}
           target="_blank"

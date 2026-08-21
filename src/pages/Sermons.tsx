@@ -8,7 +8,7 @@ import { SpotifyPlayer } from '../components/SpotifyPlayer';
 import { getSpotifyWebUrl } from '../utils/spotify';
 import { 
   Play, Youtube, Music, Search, Calendar, User, 
-  BookOpen, Clock, Filter, ExternalLink, Volume2, Sparkles, Video
+  BookOpen, Clock, Filter, ExternalLink, Sparkles, Video
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -281,27 +281,6 @@ export const SermonsPage: React.FC = () => {
             spotifyUrl={currentSpotifyUrl}
             title="Podcast Oficial IMW Cosmópolis no Spotify"
           />
-
-          {/* Audio Tracks Summary */}
-          <div className="space-y-3 pt-2">
-            <h3 className="font-sans font-bold text-slate-700 text-xs uppercase flex items-center gap-2">
-              <Volume2 className="w-4 h-4 text-emerald-600" />
-              <span>Destaques da Playlist & Podcast:</span>
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {SPOTIFY_PLAYLIST.tracks.map((track) => (
-                <div 
-                  key={track.id}
-                  className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-sans space-y-1"
-                >
-                  <p className="font-extrabold text-slate-900 uppercase line-clamp-1">{track.title}</p>
-                  <p className="text-slate-500 uppercase text-[11px] font-medium">{track.preacherOrArtist}</p>
-                  <p className="text-emerald-600 font-extrabold text-[10px] uppercase">Duração: {track.duration}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
       </div>

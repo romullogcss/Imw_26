@@ -60,7 +60,7 @@ import { SPOTIFY_PLAYLIST } from '../data/churchData';
 import { formatDateToDisplay, formatDateToDb, formatEventDateRange } from '../utils/dateUtils';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -700,6 +700,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   // -------------------------------------------------------------
   // EVENT FORM & HANDLERS
   // -------------------------------------------------------------
+  const [adminEventFilter, setAdminEventFilter] = useState<'all' | 'local' | 'distrital' | 'regional'>('all');
   const [eventForm, setEventForm] = useState<{
     title: string;
     slug?: string;
@@ -710,6 +711,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     description: string;
     imageUrl: string;
     badge: string;
+    eventType: EventType;
     enableRegistration: boolean;
     registrationType: RegistrationType;
     registrationDeadline?: string;
@@ -725,6 +727,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     description: '',
     imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
     badge: 'CONFERÊNCIA',
+    eventType: 'local',
     enableRegistration: false,
     registrationType: 'none',
     registrationDeadline: '',
@@ -751,6 +754,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         description: item.description,
         imageUrl: item.imageUrl,
         badge: item.badge,
+        eventType: item.eventType || 'local',
         enableRegistration: regType !== 'none',
         registrationType: regType,
         registrationDeadline: item.registrationDeadline || '',
@@ -769,6 +773,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
         description: '',
         imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
         badge: 'RETIRO ESPIRITUAL',
+        eventType: 'local',
         enableRegistration: false,
         registrationType: 'none',
         registrationDeadline: '',
@@ -2041,7 +2046,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <span className="text-[#102bde] text-xs font-black uppercase tracking-widest block mb-0.5">
-                    CONFERÊNCIAS & RETIROS
+                    CONFERÊNCIAS, ENCONTROS & RETIROS
                   </span>
                   <h2 className="font-black text-2xl uppercase text-slate-900">
                     EVENTOS ESPECIAIS
@@ -2054,6 +2059,51 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 >
                   <Plus className="w-4 h-4" />
                   <span>NOVO EVENTO</span>
+                </button>
+              </div>
+
+              {/* Scope Filter Bar in CMS */}
+              <div className="flex items-center gap-2 flex-wrap bg-slate-100/80 p-1.5 rounded-xl border border-slate-200 text-xs font-bold uppercase">
+                <span className="text-slate-500 px-2 text-[11px]">Filtrar por Âmbito:</span>
+                <button
+                  onClick={() => setAdminEventFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    adminEventFilter === 'all'
+                      ? 'bg-[#102bde] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  Todos ({events.length})
+                </button>
+                <button
+                  onClick={() => setAdminEventFilter('local')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    adminEventFilter === 'local'
+                      ? 'bg-[#102bde] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  🏠 Locais ({events.filter(e => (e.eventType || 'local') === 'local').length})
+                </button>
+                <button
+                  onClick={() => setAdminEventFilter('distrital')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    adminEventFilter === 'distrital'
+                      ? 'bg-[#102bde] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  📍 Distritais ({events.filter(e => e.eventType === 'distrital').length})
+                </button>
+                <button
+                  onClick={() => setAdminEventFilter('regional')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    adminEventFilter === 'regional'
+                      ? 'bg-[#102bde] text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  🏛️ Regionais ({events.filter(e => e.eventType === 'regional').length})
                 </button>
               </div>
 
@@ -2070,16 +2120,25 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {events.map((evt) => {
+                  {events
+                    .filter((e) => adminEventFilter === 'all' || (e.eventType || 'local') === adminEventFilter)
+                    .map((evt) => {
                     const eventRegs = allRegistrations.filter((r) => r.eventId === evt.id);
+                    const scopeLabel = evt.eventType === 'distrital' ? '📍 Distrital' : evt.eventType === 'regional' ? '🏛️ Regional' : '🏠 Local';
+                    const scopeBg = evt.eventType === 'distrital' ? 'bg-amber-600 text-white' : evt.eventType === 'regional' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white';
 
                     return (
                       <div key={evt.id} className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50 flex flex-col justify-between">
                         <div className="relative h-36 bg-slate-200 overflow-hidden">
                           <img src={evt.imageUrl} alt={evt.title} className="w-full h-full object-cover" />
-                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#102bde] text-white font-black text-[10px] uppercase">
-                            {evt.badge}
-                          </span>
+                          <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded bg-[#102bde] text-white font-black text-[10px] uppercase">
+                              {evt.badge}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${scopeBg}`}>
+                              {scopeLabel}
+                            </span>
+                          </div>
                         </div>
                         <div className="p-4 space-y-2 flex-1">
                           <h3 className="font-black text-base text-slate-900 uppercase leading-snug">{evt.title}</h3>
@@ -3379,14 +3438,27 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Âmbito / Tipo do Evento</label>
+                  <select
+                    value={eventForm.eventType}
+                    onChange={(e) => setEventForm({ ...eventForm, eventType: e.target.value as EventType })}
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 bg-white focus:outline-none focus:border-[#102bde]"
+                  >
+                    <option value="local">🏠 Local (IMW Cosmópolis)</option>
+                    <option value="distrital">📍 Distrital (Distrito)</option>
+                    <option value="regional">🏛️ Regional (Região)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block font-bold uppercase text-slate-700 mb-1">Etiqueta / Badge</label>
                   <input
                     type="text"
                     value={eventForm.badge}
                     onChange={(e) => setEventForm({ ...eventForm, badge: e.target.value })}
-                    placeholder="CONFERÊNCIA, ACAMPAMENTO, etc"
+                    placeholder="CONFERÊNCIA, RETIRO, etc"
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-800 focus:outline-none focus:border-[#102bde]"
                   />
                 </div>

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { 
@@ -57,6 +57,7 @@ function saveLocalEventConfig(eventId: string, config: Partial<ChurchEvent>) {
       ...(all[eventId] || {}),
       slug: config.slug,
       endDate: config.endDate,
+      eventType: config.eventType,
       enableRegistration: config.enableRegistration,
       registrationType: config.registrationType,
       registrationDeadline: config.registrationDeadline,
@@ -80,6 +81,7 @@ function mapEvent(row: any): ChurchEvent {
 
   const rawSlug = row.slug || localCfg.slug || '';
   const finalSlug = rawSlug ? slugify(rawSlug) : getEventSlug({ title: row.title, id: String(row.id) });
+  const eventType = (row.event_type || row.eventType || localCfg.eventType || 'local') as EventType;
 
   return {
     id: String(row.id),
@@ -92,6 +94,7 @@ function mapEvent(row: any): ChurchEvent {
     description: row.description,
     imageUrl: row.image_url || row.imageUrl || '',
     badge: row.badge || '',
+    eventType,
     isFeatured: row.is_featured ?? row.isFeatured ?? false,
     enableRegistration: enableReg,
     registrationType: regType,
@@ -117,6 +120,7 @@ function mapEventToDbPayload(data: Partial<ChurchEvent>): Record<string, any> {
   if (data.description !== undefined) payload.description = data.description;
   if (data.imageUrl !== undefined) payload.image_url = data.imageUrl;
   if (data.badge !== undefined) payload.badge = data.badge;
+  if (data.eventType !== undefined) payload.event_type = data.eventType;
   if (data.isFeatured !== undefined) payload.is_featured = data.isFeatured;
   if (data.registrationType !== undefined) {
     payload.registration_type = data.registrationType;
@@ -551,6 +555,7 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
     const isSchemaError = 
       errStr.includes('schema cache') || 
       errStr.includes('end_date') || 
+      errStr.includes('event_type') || 
       errStr.includes('slug') || 
       errStr.includes('column') || 
       errStr.includes('does not exist') ||
@@ -561,6 +566,7 @@ export async function addEvent(data: Omit<ChurchEvent, 'id'>) {
       console.warn('[Supabase addEvent] Erro de schema detectado, tentando sem campos estendidos:', error.message);
       
       delete payload.end_date;
+      delete payload.event_type;
       delete payload.slug;
       delete payload.enable_registration;
       delete payload.registration_type;
@@ -634,6 +640,7 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
     const isSchemaError = 
       errStr.includes('schema cache') || 
       errStr.includes('end_date') || 
+      errStr.includes('event_type') || 
       errStr.includes('slug') || 
       errStr.includes('column') || 
       errStr.includes('does not exist') ||
@@ -644,6 +651,7 @@ export async function updateEvent(id: string, data: Partial<ChurchEvent>) {
       console.warn('[Supabase updateEvent] Erro de schema detectado, tentando sem campos estendidos:', error.message);
       
       delete payload.end_date;
+      delete payload.event_type;
       delete payload.slug;
       delete payload.enable_registration;
       delete payload.registration_type;

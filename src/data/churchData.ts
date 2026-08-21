@@ -522,7 +522,138 @@ export const MINISTRIES_DATA: Ministry[] = [
       },
     ],
   },
+  {
+    id: 'louvor',
+    title: 'Louvor & Adoração',
+    subtitle: 'Equipe de Adoração',
+    ageRange: 'Músicos e Vocais',
+    description: 'Conduzindo a congregação à presença do Senhor através da música, artes e adoração com excelência.',
+    detailedDescription: 'O Ministério de Louvor tem como missão conduzir os cultos em profunda adoração, preparando arranjos, ensaios técnicos e alinhamento espiritual para servir à igreja em todos os encontros.',
+    meetingTime: 'Quintas às 20h30 e Domingos às 17h00 (Ensaios)',
+    meetingLocation: 'Templo Principal',
+    leaderName: 'Diácono Lucas & Equipe de Música',
+    leaderRole: 'Líder do Ministério de Louvor',
+    leaderPhoto: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800',
+    leaderContact: '(19) 99876-5432',
+    themeColor: {
+      badge: 'bg-purple-100 text-purple-900 border-purple-300',
+      bgGradient: 'from-purple-800 to-indigo-950',
+      accent: 'purple',
+      border: 'border-purple-400',
+      text: 'text-purple-800',
+    },
+    activities: [
+      'Ensaios de instrumental e vocal',
+      'Escala de cultos e eventos especiais',
+      'Discipulado para novos instrumentistas',
+    ],
+    gallery: [
+      {
+        id: 'l1',
+        url: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800',
+        caption: 'Adoração ao vivo no culto de domingo',
+      },
+    ],
+  },
+  {
+    id: 'intercessao',
+    title: 'Intercessão & Oração',
+    subtitle: 'Guerreiros de Oração',
+    ageRange: 'Todos os membros',
+    description: 'Sustentando a igreja, as famílias e os líderes em constante oração e clamor ao Senhor.',
+    detailedDescription: 'O Ministério de Intercessão atua como coluna espiritual da igreja, mantendo relógios de oração, atendendo pedidos da comunidade e clamando pelo avivamento em Cosmópolis.',
+    meetingTime: 'Terças às 19h00 e Domingos às 17h30',
+    meetingLocation: 'Sala de Oração / Templo',
+    leaderName: 'Presbítero Roberto Alves',
+    leaderRole: 'Coordenador de Intercessão',
+    leaderPhoto: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=800',
+    leaderContact: '(19) 99876-5432',
+    themeColor: {
+      badge: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+      bgGradient: 'from-emerald-800 to-slate-950',
+      accent: 'emerald',
+      border: 'border-emerald-400',
+      text: 'text-emerald-800',
+    },
+    activities: [
+      'Relógio de oração e vigílias',
+      'Atendimento aos pedidos de oração do site',
+      'Clamor semanal pelas famílias e líderes',
+    ],
+    gallery: [
+      {
+        id: 'i1',
+        url: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&q=80&w=800',
+        caption: 'Momento de oração congregacional',
+      },
+    ],
+  },
+  {
+    id: 'outros',
+    title: 'Outros Ministérios & Ação Social',
+    subtitle: 'Serviço & Diaconia',
+    ageRange: 'Toda a comunidade',
+    description: 'Grupos de apoio, acolhimento, mídia, recepção, e ação social servindo a igreja e a cidade.',
+    detailedDescription: 'Engloba a equipe de Recepção, Diaconia, Mídia & Comunicação, Ação Social e Manutenção. Cada voluntário coloca seus talentos à disposição para o bom andamento da casa de Deus.',
+    meetingTime: 'Atividades semanais e escalas',
+    meetingLocation: 'Diversos espaços da igreja',
+    leaderName: 'Equipe de Diaconia e Serviços',
+    leaderRole: 'Coordenação Geral de Serviços',
+    leaderPhoto: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800',
+    leaderContact: '(19) 99876-5432',
+    themeColor: {
+      badge: 'bg-blue-100 text-blue-900 border-blue-300',
+      bgGradient: 'from-blue-800 to-slate-900',
+      accent: 'blue',
+      border: 'border-blue-400',
+      text: 'text-blue-800',
+    },
+    activities: [
+      'Acolhimento e recepção aos visitantes',
+      'Transmissão ao vivo e equipe de som',
+      'Arrecadação e doação de mantimentos',
+    ],
+    gallery: [
+      {
+        id: 'o1',
+        url: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&q=80&w=800',
+        caption: 'Equipe de recepção e acolhimento',
+      },
+    ],
+  },
 ];
+
+export interface EventHeaderConfig {
+  scope: 'local' | 'distrital' | 'regional';
+  title: string;
+  badge: string;
+  description: string;
+  backgroundImageUrl: string;
+}
+
+export const EVENT_HEADER_CONFIGS: Record<'local' | 'distrital' | 'regional', EventHeaderConfig> = {
+  local: {
+    scope: 'local',
+    title: 'EVENTOS LOCAIS',
+    badge: 'IMW COSMÓPOLIS • PROGRAMAÇÃO DA SEDE',
+    description: 'Acompanhe a agenda, cultos presenciais, encontros e celebrações da nossa igreja local. Venha celebrar e se edificar conosco!',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1510519138161-58441065e711?auto=format&fit=crop&q=80&w=1600',
+  },
+  distrital: {
+    scope: 'distrital',
+    title: 'EVENTOS DISTRITAIS',
+    badge: 'DISTRITO CAMPINAS',
+    description: 'Acompanhe a agenda, encontros, retiros e conferências organizados pelo nosso Distrito de Campinas. Fortalecendo a unidade e a comunhão das igrejas da nossa região.',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=1600',
+  },
+  regional: {
+    scope: 'regional',
+    title: 'EVENTOS REGIONAIS',
+    badge: '3ª REGIÃO ECLESIÁSTICA',
+    description: 'Acompanhe os congressos, convenções e retiros promovidos pela 3ª Região Eclesiástica da Igreja Metodista Wesleyana.',
+    backgroundImageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=1600',
+  },
+};
 
 export const WEEKLY_SCHEDULE: ScheduleItem[] = [
   {
@@ -588,6 +719,7 @@ export const SPECIAL_EVENTS: ChurchEvent[] = [
     description: 'Dias intensos de louvor, adoração profética e ministração da Palavra de Deus para renovação espiritual de toda a igreja e famílias.',
     imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=1200',
     badge: 'CONFERÊNCIA',
+    eventType: 'local',
     isFeatured: true,
     enableRegistration: true,
     registrationType: 'simple',
@@ -604,6 +736,7 @@ export const SPECIAL_EVENTS: ChurchEvent[] = [
     description: 'Um fim de semana inesquecível de imersão espiritual, comunhão profunda, oficinas para jovens e famílias, lazer e buscarmos a presença do Senhor.',
     imageUrl: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=1200',
     badge: 'RETIRO',
+    eventType: 'local',
     isFeatured: true,
     enableRegistration: true,
     registrationType: 'retreat',
@@ -620,9 +753,43 @@ export const SPECIAL_EVENTS: ChurchEvent[] = [
     description: 'Uma noite especial dedicada exclusivamente ao louvor congregacional, adoração extravagante e oração comunitária.',
     imageUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=1200',
     badge: 'LOUVOR',
+    eventType: 'local',
     isFeatured: false,
     enableRegistration: false,
     registrationType: 'none',
+  },
+  {
+    id: 'evt-dist-1',
+    slug: 'encontro-distrital-de-mulheres-2026',
+    title: 'Encontro Distrital de Mulheres 2026',
+    date: '2026-10-10',
+    time: '14:00',
+    location: 'IMW Sede do Distrito - Campinas / SP',
+    description: 'Grande ajuntamento de mulheres de todas as igrejas do Distrito Wesleyano para ministrações, louvor e edificação espiritual.',
+    imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=1200',
+    badge: 'DISTRITAL',
+    eventType: 'distrital',
+    isFeatured: true,
+    enableRegistration: true,
+    registrationType: 'simple',
+    registrationLimit: 300,
+  },
+  {
+    id: 'evt-reg-1',
+    slug: 'congresso-regional-de-casais-2026',
+    title: 'Congresso Regional de Casais',
+    date: '2026-12-04',
+    endDate: '2026-12-06',
+    time: '18:00',
+    location: 'Centro de Convenções Wesleyano - Região Eclesiástica',
+    description: 'Congresso anual da Região Eclesiástica reunindo casais para momentos de fortalecimento matrimonial, oficinas e renovo na presença de Deus.',
+    imageUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=1200',
+    badge: 'REGIONAL',
+    eventType: 'regional',
+    isFeatured: true,
+    enableRegistration: true,
+    registrationType: 'retreat',
+    registrationLimit: 500,
   },
 ];
 

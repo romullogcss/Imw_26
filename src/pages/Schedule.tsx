@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { WEEKLY_SCHEDULE, SPECIAL_EVENTS } from '../data/churchData';
+import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, EVENT_HEADER_CONFIGS } from '../data/churchData';
 import { subscribeSchedules, subscribeEvents, addEventRegistration } from '../services/firestoreService';
-import { ScheduleItem, ChurchEvent } from '../types';
+import { ScheduleItem, ChurchEvent, PageId } from '../types';
 import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl, formatEventDateRange } from '../utils/dateUtils';
 import { DatePicker } from '../components/DatePicker';
+import { EventsPageHeader } from '../components/EventsPageHeader';
 import { 
   Calendar, Clock, MapPin, Sparkles, Filter, 
   CheckCircle, Plus, Share2, Tag, ChevronRight, Info,
@@ -13,8 +14,13 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
-export const SchedulePage: React.FC = () => {
+interface SchedulePageProps {
+  onNavigate?: (page: PageId, extraParam?: string) => void;
+}
+
+export const SchedulePage: React.FC<SchedulePageProps> = ({ onNavigate }) => {
   const [selectedDay, setSelectedDay] = useState<string>('Todos');
+  const [selectedScopeFilter, setSelectedScopeFilter] = useState<'all' | 'local' | 'distrital' | 'regional'>('all');
   const [addedCalendarId, setAddedCalendarId] = useState<string | null>(null);
 
   // Firestore live collections
@@ -130,21 +136,14 @@ export const SchedulePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20">
       
-      {/* ELEVATION SCHEDULE HERO */}
-      <section className="bg-white text-slate-900 py-16 lg:py-20 border-b border-slate-200 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-50/50 via-white to-slate-50" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="text-[#102bde] text-xs font-sans font-black uppercase tracking-widest block mb-2">
-            HORÁRIOS DOS CULTOS
-          </span>
-          <h1 className="font-sans font-black text-4xl sm:text-6xl uppercase text-slate-900 tracking-tight">
-            AGENDA DA SEMANA
-          </h1>
-          <p className="text-slate-600 text-xs sm:text-base max-w-2xl mx-auto mt-3 font-medium leading-relaxed">
-            Venha celebrar conosco presencialmente. Confira os horários e locais dos nossos cultos e grupos.
-          </p>
-        </div>
-      </section>
+      {/* SHARED STANDARDIZED EVENT HERO HEADER */}
+      <EventsPageHeader
+        title={EVENT_HEADER_CONFIGS.local.title}
+        description={EVENT_HEADER_CONFIGS.local.description}
+        backgroundImageUrl={EVENT_HEADER_CONFIGS.local.backgroundImageUrl}
+        currentScope="local"
+        onNavigate={onNavigate}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-16">
 
@@ -257,17 +256,63 @@ export const SchedulePage: React.FC = () => {
         </section>
 
         {/* SECTION 2: SPECIAL EVENTS (CARDS WITH DATES) */}
-        <section className="space-y-8">
-          <div>
-            <span className="text-[#102bde] text-xs font-sans font-black uppercase tracking-widest block mb-1">
-              CONFERÊNCIAS & ACAMPAMENTOS
-            </span>
-            <h2 className="font-sans font-black text-3xl sm:text-5xl uppercase text-slate-900">
-              EVENTOS ESPECIAIS
-            </h2>
-            <p className="text-slate-600 text-sm mt-1 font-medium">
-              Datas marcadas em nosso calendário para fortalecimento da comunidade.
-            </p>
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-slate-200 pb-4">
+            <div>
+              <span className="text-[#102bde] text-xs font-sans font-black uppercase tracking-widest block mb-1">
+                CONFERÊNCIAS, ENCONTROS & RETIROS
+              </span>
+              <h2 className="font-sans font-black text-3xl sm:text-4xl uppercase text-slate-900">
+                EVENTOS ESPECIAIS
+              </h2>
+              <p className="text-slate-600 text-sm mt-1 font-medium">
+                Confira a programação de eventos da nossa igreja local, distrito e região.
+              </p>
+            </div>
+
+            {/* Scope Filter Buttons */}
+            <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-xl text-xs font-bold uppercase shrink-0">
+              <button
+                onClick={() => setSelectedScopeFilter('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  selectedScopeFilter === 'all'
+                    ? 'bg-[#102bde] text-white shadow-sm'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300/50'
+                }`}
+              >
+                Todos ({eventsList.length})
+              </button>
+              <button
+                onClick={() => setSelectedScopeFilter('local')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  selectedScopeFilter === 'local'
+                    ? 'bg-[#102bde] text-white shadow-sm'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300/50'
+                }`}
+              >
+                🏠 Locais
+              </button>
+              <button
+                onClick={() => setSelectedScopeFilter('distrital')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  selectedScopeFilter === 'distrital'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300/50'
+                }`}
+              >
+                📍 Distritais
+              </button>
+              <button
+                onClick={() => setSelectedScopeFilter('regional')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  selectedScopeFilter === 'regional'
+                    ? 'bg-purple-700 text-white shadow-sm'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300/50'
+                }`}
+              >
+                🏛️ Regionais
+              </button>
+            </div>
           </div>
 
           {eventsList.length === 0 ? (
@@ -282,26 +327,37 @@ export const SchedulePage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {eventsList.map((event) => (
-                <div
-                  key={event.id}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="relative h-60 overflow-hidden bg-slate-100">
-                      <img
-                        src={event.imageUrl}
-                        alt={event.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" />
-                      
-                      <div className="absolute top-4 left-4">
-                        <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-sans font-black text-xs uppercase tracking-wider shadow-sm">
-                          {event.badge}
-                        </span>
-                      </div>
+              {eventsList
+                .filter((e) => selectedScopeFilter === 'all' || (e.eventType || 'local') === selectedScopeFilter)
+                .map((event) => {
+                  const scopeLabel = event.eventType === 'distrital' ? '📍 DISTRITAL' : event.eventType === 'regional' ? '🏛️ REGIONAL' : '🏠 LOCAL';
+                  const scopeClass = event.eventType === 'distrital' ? 'bg-amber-600 text-white' : event.eventType === 'regional' ? 'bg-purple-700 text-white' : 'bg-blue-600 text-white';
+
+                  return (
+                    <div
+                      key={event.id}
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between group"
+                    >
+                      <div>
+                        <div className="relative h-60 overflow-hidden bg-slate-100">
+                          <img
+                            src={event.imageUrl}
+                            alt={event.title}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/30 to-transparent" />
+                          
+                          <div className="absolute top-4 left-4 flex items-center gap-2">
+                            {event.badge && (
+                              <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-sans font-black text-xs uppercase tracking-wider shadow-sm">
+                                {event.badge}
+                              </span>
+                            )}
+                            <span className={`px-2.5 py-1 rounded-md font-sans font-black text-[11px] uppercase tracking-wider shadow-sm ${scopeClass}`}>
+                              {scopeLabel}
+                            </span>
+                          </div>
 
                       <div className="absolute bottom-4 left-4 right-4 text-white">
                         <div className="flex items-center gap-2 text-white font-sans text-xs font-extrabold uppercase mb-1 drop-shadow">
@@ -368,7 +424,8 @@ export const SchedulePage: React.FC = () => {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
           )}
         </section>

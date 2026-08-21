@@ -19,6 +19,10 @@ export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryI
   const [lightboxImage, setLightboxImage] = useState<{ url: string; caption: string } | null>(null);
 
   useEffect(() => {
+    setSelectedMinistryId(initialMinistryId || null);
+  }, [initialMinistryId]);
+
+  useEffect(() => {
     const unsub = subscribeMinistries((items) => {
       if (items && items.length > 0) {
         setMinistriesList(items);

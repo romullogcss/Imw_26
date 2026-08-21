@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   description TEXT,
   image_url TEXT,
   badge TEXT,
+  event_type TEXT DEFAULT 'local',
   is_featured BOOLEAN DEFAULT false,
   enable_registration BOOLEAN DEFAULT false,
   registration_type TEXT DEFAULT 'simple',
@@ -86,6 +87,7 @@ CREATE TABLE IF NOT EXISTS public.events (
 -- Alter table to ensure columns exist if events table already exists
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS slug TEXT;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS end_date TEXT;
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'local';
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS enable_registration BOOLEAN DEFAULT false;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_type TEXT DEFAULT 'simple';
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMPTZ;

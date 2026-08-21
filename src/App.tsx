@@ -18,6 +18,8 @@ import { ContactPage } from './pages/Contact';
 import { DonationsPage } from './pages/Donations';
 import { AdminPage } from './pages/Admin';
 import { EventDetailPage } from './pages/EventDetail';
+import { DistrictEventsPage } from './pages/DistrictEvents';
+import { RegionalEventsPage } from './pages/RegionalEvents';
 
 export default function App() {
   const [selectedEventSlug, setSelectedEventSlug] = useState<string>('');
@@ -47,6 +49,8 @@ export default function App() {
       history: 'Nossa História - IMW Cosmópolis',
       ministries: 'Ministérios - IMW Cosmópolis',
       schedule: 'Programação - IMW Cosmópolis',
+      'district-events': 'Eventos Distritais - IMW Cosmópolis',
+      'regional-events': 'Eventos Regionais - IMW Cosmópolis',
       sermons: 'Pregações & Sermões - IMW Cosmópolis',
       contact: 'Fale Conosco - IMW Cosmópolis',
       donations: 'Doações e Ofertas - IMW Cosmópolis',
@@ -118,6 +122,7 @@ export default function App() {
       {/* Top Sticky Header */}
       <Header
         currentPage={currentPage}
+        selectedMinistryId={selectedMinistryId}
         onNavigate={handleNavigate}
         onOpenPrayerModal={() => setIsPrayerModalOpen(true)}
       />
@@ -140,7 +145,15 @@ export default function App() {
         )}
 
         {currentPage === 'schedule' && (
-          <SchedulePage />
+          <SchedulePage onNavigate={handleNavigate} />
+        )}
+
+        {currentPage === 'district-events' && (
+          <DistrictEventsPage onNavigate={handleNavigate} />
+        )}
+
+        {currentPage === 'regional-events' && (
+          <RegionalEventsPage onNavigate={handleNavigate} />
         )}
 
         {currentPage === 'sermons' && (

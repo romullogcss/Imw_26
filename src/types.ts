@@ -1,4 +1,6 @@
-export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'sermons' | 'contact' | 'donations' | 'admin' | 'event-detail';
+export type PageId = 'home' | 'history' | 'ministries' | 'schedule' | 'district-events' | 'regional-events' | 'sermons' | 'contact' | 'donations' | 'admin' | 'event-detail';
+
+export type EventType = 'local' | 'distrital' | 'regional';
 
 export interface Leader {
   id: string;
@@ -19,7 +21,7 @@ export interface TimelineItem {
 }
 
 export interface Ministry {
-  id: 'criancas' | 'pre-adolescentes' | 'adolescentes' | 'jovens' | 'homens' | 'mulheres' | 'melhor-idade';
+  id: string;
   title: string;
   subtitle: string;
   ageRange: string;
@@ -71,6 +73,7 @@ export interface ChurchEvent {
   description: string;
   imageUrl: string;
   badge: string;
+  eventType?: EventType;
   isFeatured?: boolean;
   enableRegistration?: boolean;
   registrationType?: RegistrationType;
