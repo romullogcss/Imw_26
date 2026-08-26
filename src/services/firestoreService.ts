@@ -1319,9 +1319,7 @@ async function fetchAndNotifyMinistries() {
     let items: Ministry[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar ministries:', error.message);
-      items = MINISTRIES_DATA.map(mapMinistry).sort((a, b) =>
-        a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' })
-      );
+      items = [];
     } else if (data && data.length > 0) {
       items = data
         .map(mapMinistry)
@@ -1333,10 +1331,7 @@ async function fetchAndNotifyMinistries() {
     ministryListeners.forEach((cb) => cb(items));
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar ministries:', err);
-    const fallback = MINISTRIES_DATA.map(mapMinistry).sort((a, b) =>
-      a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' })
-    );
-    ministryListeners.forEach((cb) => cb(fallback));
+    ministryListeners.forEach((cb) => cb([]));
   }
 }
 
@@ -1406,19 +1401,44 @@ export async function updateMinistry(id: string, data: Partial<Ministry>) {
     throw new Error(`Erro ao atualizar ministério no Supabase: ${error.message}`);
   }
 
+  if (!updated || updated.length === 0) {
+    const { data: checkExisting } = await supabase
+      .from('ministries')
+      .select('id')
+      .eq('id', id);
+
+    if (checkExisting && checkExisting.length > 0) {
+      console.error('[Supabase] Edição de ministério bloqueada por RLS para o ID:', id);
+      throw new Error('Permissão negada pelo banco de dados (RLS) para atualizar este ministério. Verifique suas credenciais de Administrador.');
+    }
+  }
+
   fetchAndNotifyMinistries();
   return updated;
 }
 
 export async function deleteMinistry(id: string) {
-  const { error } = await supabase
+  const { data: deletedRows, error } = await supabase
     .from('ministries')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select('*');
 
   if (error) {
     console.error('[Supabase] Erro ao excluir ministério:', error);
     throw new Error(`Erro ao excluir ministério no Supabase: ${error.message}`);
+  }
+
+  if (!deletedRows || deletedRows.length === 0) {
+    const { data: checkExisting } = await supabase
+      .from('ministries')
+      .select('id')
+      .eq('id', id);
+
+    if (checkExisting && checkExisting.length > 0) {
+      console.error('[Supabase] Exclusão de ministério bloqueada por RLS para o ID:', id);
+      throw new Error('Permissão negada pelo banco de dados (RLS) para excluir o ministério. Verifique se você está autenticado como Administrador.');
+    }
   }
 
   fetchAndNotifyMinistries();
@@ -1462,9 +1482,8 @@ export async function clearAllSermons() {
 export async function seedInitialFirestoreData(force = false) {
   console.log('[Supabase Seed] Iniciando sincronização/seed de dados para Supabase...');
   try {
-    // 1. Seed Ministries
-    const { data: minData } = await supabase.from('ministries').select('id');
-    if (!minData || minData.length === 0 || force) {
+    // 1. Seed Ministries (Apenas se explicitamente forçado pelo administrador)
+    if (force) {
       for (const min of MINISTRIES_DATA) {
         await addMinistry(min);
       }

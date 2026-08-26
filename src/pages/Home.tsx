@@ -333,7 +333,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
                   <Users className="w-6 h-6" />
                 </div>
                 <h3 className="font-sans font-black text-xl text-slate-900 uppercase mb-2 group-hover:text-blue-600 transition-colors">
-                  7 MINISTÉRIOS
+                  MINISTÉRIOS DA IGREJA
                 </h3>
                 <p className="text-slate-600 text-xs leading-relaxed font-medium">
                   Crianças, jovens, casais, homens, mulheres, idosos e louvor. Encontre seu grupo de comunhão.

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { MINISTRIES_DATA } from '../data/churchData';
 import { subscribeMinistries } from '../services/firestoreService';
 import { Ministry } from '../types';
 import { 
@@ -14,7 +13,8 @@ interface MinistriesPageProps {
 }
 
 export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryId }) => {
-  const [ministriesList, setMinistriesList] = useState<Ministry[]>(MINISTRIES_DATA);
+  const [ministriesList, setMinistriesList] = useState<Ministry[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedMinistryId, setSelectedMinistryId] = useState<string | null>(initialMinistryId || null);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; caption: string } | null>(null);
 
@@ -24,11 +24,8 @@ export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryI
 
   useEffect(() => {
     const unsub = subscribeMinistries((items) => {
-      if (items && items.length > 0) {
-        setMinistriesList(items);
-      } else {
-        setMinistriesList(MINISTRIES_DATA);
-      }
+      setMinistriesList(items || []);
+      setIsLoading(false);
     });
     return () => unsub();
   }, []);
@@ -220,7 +217,7 @@ export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryI
             </div>
           </motion.div>
         ) : (
-          /* MAIN 7 CARDS GRID VIEW */
+          /* MAIN CARDS GRID VIEW */
           <div className="space-y-8">
             <div className="text-center max-w-xl mx-auto">
               <h2 className="font-sans font-black text-3xl uppercase text-slate-900">
@@ -231,63 +228,86 @@ export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryI
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ministriesList.map((ministry) => {
-                const isPlayful = ministry.isPlayful;
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((idx) => (
+                  <div key={idx} className="bg-white rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200 animate-pulse">
+                    <div className="h-6 w-24 bg-slate-200 rounded-md" />
+                    <div className="h-8 w-3/4 bg-slate-200 rounded-md" />
+                    <div className="h-16 bg-slate-100 rounded-md" />
+                    <div className="h-4 w-1/2 bg-slate-200 rounded-md" />
+                  </div>
+                ))}
+              </div>
+            ) : ministriesList.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-lg mx-auto shadow-sm space-y-3">
+                <Users className="w-12 h-12 text-slate-300 mx-auto" />
+                <h3 className="font-sans font-black text-xl text-slate-800 uppercase">
+                  Nenhum Ministério Cadastrado
+                </h3>
+                <p className="text-slate-500 text-xs font-medium leading-relaxed">
+                  Não há ministérios cadastrados no sistema no momento. Administradores podem adicionar novos ministérios através do Painel CMS.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ministriesList.map((ministry) => {
+                  const isPlayful = ministry.isPlayful;
 
-                return (
-                  <motion.div
-                    key={ministry.id}
-                    whileHover={{ y: -4 }}
-                    transition={{ duration: 0.2 }}
-                    onClick={() => setSelectedMinistryId(ministry.id)}
-                    className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-[#102bde] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
-                  >
-                    <div className="p-6 sm:p-8 space-y-4 font-sans">
-                      {/* Badge & Age */}
-                      <div className="flex items-center justify-between">
-                        <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-black text-[11px] uppercase tracking-wider">
-                          {ministry.ageRange}
-                        </span>
+                  return (
+                    <motion.div
+                      key={ministry.id}
+                      whileHover={{ y: -4 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={() => setSelectedMinistryId(ministry.id)}
+                      className="bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-[#102bde] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+                    >
+                      <div className="p-6 sm:p-8 space-y-4 font-sans">
+                        {/* Badge & Age */}
+                        <div className="flex items-center justify-between">
+                          <span className="px-3 py-1 rounded-md bg-[#102bde] text-white font-black text-[11px] uppercase tracking-wider">
+                            {ministry.ageRange}
+                          </span>
 
-                        {isPlayful ? (
-                          <span className="flex items-center gap-1 text-[11px] font-black text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-md border border-blue-300 uppercase">
-                            <Smile className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Kids Lúdico</span>
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-slate-500 font-bold uppercase">
-                            {ministry.subtitle}
-                          </span>
-                        )}
+                          {isPlayful ? (
+                            <span className="flex items-center gap-1 text-[11px] font-black text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-md border border-blue-300 uppercase">
+                              <Smile className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Kids Lúdico</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 font-bold uppercase">
+                              {ministry.subtitle}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="font-sans font-black text-2xl uppercase text-slate-900 group-hover:text-[#102bde] transition-colors">
+                          {ministry.title}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
+                          {ministry.description}
+                        </p>
+
+                        {/* Meeting Time Preview */}
+                        <div className="pt-2 flex items-center gap-2 text-xs text-slate-500 font-bold uppercase">
+                          <Clock className="w-3.5 h-3.5 text-[#102bde] shrink-0" />
+                          <span>{ministry.meetingTime}</span>
+                        </div>
                       </div>
 
-                      {/* Title */}
-                      <h3 className="font-sans font-black text-2xl uppercase text-slate-900 group-hover:text-[#102bde] transition-colors">
-                        {ministry.title}
-                      </h3>
-
-                      {/* Description */}
-                      <p className="text-slate-600 text-xs sm:text-sm leading-relaxed font-medium">
-                        {ministry.description}
-                      </p>
-
-                      {/* Meeting Time Preview */}
-                      <div className="pt-2 flex items-center gap-2 text-xs text-slate-500 font-bold uppercase">
-                        <Clock className="w-3.5 h-3.5 text-[#102bde] shrink-0" />
-                        <span>{ministry.meetingTime}</span>
+                      {/* Bottom CTA Bar */}
+                      <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs font-sans font-black uppercase tracking-wider text-slate-600 group-hover:text-[#102bde] transition-colors">
+                        <span>VER SUB-PÁGINA & GALERIA</span>
+                        <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </div>
-                    </div>
-
-                    {/* Bottom CTA Bar */}
-                    <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs font-sans font-black uppercase tracking-wider text-slate-600 group-hover:text-[#102bde] transition-colors">
-                      <span>VER SUB-PÁGINA & GALERIA</span>
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
