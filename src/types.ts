@@ -198,3 +198,32 @@ export interface DashboardInvite {
   createdAt?: string;
   status: 'pending' | 'accepted' | 'expired';
 }
+
+export interface DistrictInfo {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  purpose: string;
+  bannerUrl?: string;
+  updatedAt?: string;
+}
+
+export interface DistrictCongregation {
+  id: string;
+  name: string;
+  city: string;
+  slug?: string;
+  pastorName: string;
+  address: string;
+  whatsapp: string;
+  googleMapsEmbedUrl?: string;
+  socialType?: 'facebook' | 'instagram' | 'youtube';
+  socialUrl?: string;
+  imageUrl?: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

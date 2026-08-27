@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { 
@@ -2378,5 +2378,303 @@ async function markInviteAccepted(token: string): Promise<void> {
     console.warn('[Supabase] Exceção ao marcar convite como aceito:', err);
   }
 }
+
+// ====================================================================
+// DISTRITO MISSIONÁRIO DE CAMPINAS & CONGREGAÇÕES
+// ====================================================================
+
+export const DEFAULT_DISTRICT_INFO: DistrictInfo = {
+  id: 'campinas',
+  title: 'Distrito Missionário de Campinas',
+  subtitle: 'Igreja Metodista Wesleyana • 5ª Região Eclesiástica',
+  description: 'O Distrito Missionário de Campinas reúne congregações unidas na proclamação do Evangelho de Cristo, promovendo comunhão, edificação espiritual, pastoreio de famílias e evangelismo estratégico na região.',
+  purpose: 'Nossa missão regional é fortalecer cada comunidade local, formar discípulos comprometidos com a Palavra de Deus e servir nossas cidades com amor, santidade bíblica e acolhimento humano.',
+  bannerUrl: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1600',
+};
+
+export const INITIAL_DISTRICT_CONGREGATIONS: DistrictCongregation[] = [
+  {
+    id: 'cong-cosmopolis',
+    name: 'IMW Cosmópolis (Sede)',
+    city: 'Cosmópolis',
+    slug: 'cosmopolis',
+    pastorName: 'Pr. Gessivaldo & Miss. Eugênia',
+    address: 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP',
+    whatsapp: '19998765432',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=R.+Marcelo+Lugli,+1457+-+Jardim+Planalto,+Cosm%C3%B3polis+-+SP&output=embed',
+    socialType: 'instagram',
+    socialUrl: 'https://www.instagram.com/imwcosmopolis/',
+    imageUrl: 'https://images.unsplash.com/photo-1548625361-181358913a0e?auto=format&fit=crop&q=80&w=800',
+    sortOrder: 1,
+    isActive: true,
+  },
+  {
+    id: 'cong-artur-nogueira',
+    name: 'IMW Artur Nogueira',
+    city: 'Artur Nogueira',
+    slug: 'artur-nogueira',
+    pastorName: 'Pr. Responsável',
+    address: 'Artur Nogueira - SP',
+    whatsapp: '19999990001',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Artur+Nogueira,+SP&output=embed',
+    socialType: 'instagram',
+    socialUrl: 'https://www.instagram.com/imw.arturnogueira/',
+    imageUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&q=80&w=800',
+    sortOrder: 2,
+    isActive: true,
+  },
+  {
+    id: 'cong-holambra',
+    name: 'IMW Holambra',
+    city: 'Holambra',
+    slug: 'holambra',
+    pastorName: 'Pr. Responsável',
+    address: 'Holambra - SP',
+    whatsapp: '19999990002',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Holambra,+SP&output=embed',
+    socialType: 'instagram',
+    socialUrl: 'https://www.instagram.com/imwholambra/',
+    imageUrl: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=800',
+    sortOrder: 3,
+    isActive: true,
+  },
+  {
+    id: 'cong-limeira',
+    name: 'IMW Limeira',
+    city: 'Limeira',
+    slug: 'limeira',
+    pastorName: 'Pr. Responsável',
+    address: 'Limeira - SP',
+    whatsapp: '19999990003',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Limeira,+SP&output=embed',
+    socialType: 'instagram',
+    socialUrl: 'https://www.instagram.com/imwlimeira/',
+    imageUrl: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=800',
+    sortOrder: 4,
+    isActive: true,
+  },
+  {
+    id: 'cong-piracicaba',
+    name: 'IMW Piracicaba',
+    city: 'Piracicaba',
+    slug: 'piracicaba',
+    pastorName: 'Pr. Responsável',
+    address: 'Piracicaba - SP',
+    whatsapp: '19999990004',
+    googleMapsEmbedUrl: 'https://maps.google.com/maps?q=Piracicaba,+SP&output=embed',
+    socialType: 'instagram',
+    socialUrl: 'https://www.instagram.com/imwpiracicaba/',
+    imageUrl: 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?auto=format&fit=crop&q=80&w=800',
+    sortOrder: 5,
+    isActive: true,
+  },
+];
+
+let districtCongregationListeners: ((data: DistrictCongregation[]) => void)[] = [];
+
+function mapDistrictCongregation(data: any): DistrictCongregation {
+  return {
+    id: data.id,
+    name: data.name || '',
+    city: data.city || '',
+    slug: data.slug || '',
+    pastorName: data.pastor_name || data.pastorName || '',
+    address: data.address || '',
+    whatsapp: data.whatsapp || '',
+    googleMapsEmbedUrl: data.google_maps_embed_url || data.googleMapsEmbedUrl || '',
+    socialType: data.social_type || data.socialType || 'instagram',
+    socialUrl: data.social_url || data.socialUrl || '',
+    imageUrl: data.image_url || data.imageUrl || '',
+    sortOrder: typeof data.sort_order === 'number' ? data.sort_order : data.sortOrder || 0,
+    isActive: data.is_active !== undefined ? Boolean(data.is_active) : (data.isActive !== undefined ? Boolean(data.isActive) : true),
+    createdAt: data.created_at || data.createdAt,
+    updatedAt: data.updated_at || data.updatedAt,
+  };
+}
+
+export async function fetchDistrictInfo(): Promise<DistrictInfo> {
+  try {
+    const { data, error } = await supabase
+      .from('district_info')
+      .select('*')
+      .eq('id', 'campinas')
+      .single();
+
+    if (error || !data) {
+      return DEFAULT_DISTRICT_INFO;
+    }
+
+    return {
+      id: data.id || 'campinas',
+      title: data.title || DEFAULT_DISTRICT_INFO.title,
+      subtitle: data.subtitle || DEFAULT_DISTRICT_INFO.subtitle,
+      description: data.description || DEFAULT_DISTRICT_INFO.description,
+      purpose: data.purpose || DEFAULT_DISTRICT_INFO.purpose,
+      bannerUrl: data.banner_url || DEFAULT_DISTRICT_INFO.bannerUrl,
+      updatedAt: data.updated_at,
+    };
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar district_info:', err);
+    return DEFAULT_DISTRICT_INFO;
+  }
+}
+
+export async function updateDistrictInfo(info: Partial<DistrictInfo>): Promise<DistrictInfo> {
+  const record = {
+    id: 'campinas',
+    title: info.title,
+    subtitle: info.subtitle,
+    description: info.description,
+    purpose: info.purpose,
+    banner_url: info.bannerUrl,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('district_info')
+    .upsert([record], { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('[Supabase] Erro ao atualizar district_info:', error);
+    throw new Error(`Erro ao salvar informações do distrito: ${error.message}`);
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    subtitle: data.subtitle,
+    description: data.description,
+    purpose: data.purpose,
+    bannerUrl: data.banner_url,
+    updatedAt: data.updated_at,
+  };
+}
+
+async function fetchAndNotifyDistrictCongregations() {
+  try {
+    const { data, error } = await supabase
+      .from('district_congregations')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    let items: DistrictCongregation[] = [];
+    if (error || !data || data.length === 0) {
+      items = INITIAL_DISTRICT_CONGREGATIONS;
+    } else {
+      items = data.map(mapDistrictCongregation);
+    }
+
+    districtCongregationListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar congregações:', err);
+    districtCongregationListeners.forEach((cb) => cb(INITIAL_DISTRICT_CONGREGATIONS));
+  }
+}
+
+export function subscribeDistrictCongregations(callback: (items: DistrictCongregation[]) => void) {
+  districtCongregationListeners.push(callback);
+  fetchAndNotifyDistrictCongregations();
+
+  const channel = supabase
+    .channel('public:district_congregations')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'district_congregations' },
+      () => {
+        fetchAndNotifyDistrictCongregations();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    districtCongregationListeners = districtCongregationListeners.filter((cb) => cb !== callback);
+    supabase.removeChannel(channel);
+  };
+}
+
+export async function addDistrictCongregation(cong: Omit<DistrictCongregation, 'id'> & { id?: string }) {
+  const newId = cong.id || 'cong-' + Date.now();
+  const dbRecord = {
+    id: newId,
+    name: cong.name,
+    city: cong.city,
+    slug: cong.slug || cong.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-'),
+    pastor_name: cong.pastorName,
+    address: cong.address,
+    whatsapp: cong.whatsapp,
+    google_maps_embed_url: cong.googleMapsEmbedUrl,
+    social_type: cong.socialType || 'instagram',
+    social_url: cong.socialUrl,
+    image_url: cong.imageUrl,
+    sort_order: cong.sortOrder ?? 0,
+    is_active: cong.isActive !== undefined ? cong.isActive : true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('district_congregations')
+    .insert([dbRecord])
+    .select();
+
+  if (error) {
+    console.error('[Supabase] Erro ao adicionar congregação:', error);
+    throw new Error(`Erro ao salvar congregação no Supabase: ${error.message}`);
+  }
+
+  fetchAndNotifyDistrictCongregations();
+  return data ? mapDistrictCongregation(data[0]) : null;
+}
+
+export async function updateDistrictCongregation(id: string, cong: Partial<DistrictCongregation>) {
+  const dbRecord: any = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (cong.name !== undefined) dbRecord.name = cong.name;
+  if (cong.city !== undefined) dbRecord.city = cong.city;
+  if (cong.slug !== undefined) dbRecord.slug = cong.slug;
+  if (cong.pastorName !== undefined) dbRecord.pastor_name = cong.pastorName;
+  if (cong.address !== undefined) dbRecord.address = cong.address;
+  if (cong.whatsapp !== undefined) dbRecord.whatsapp = cong.whatsapp;
+  if (cong.googleMapsEmbedUrl !== undefined) dbRecord.google_maps_embed_url = cong.googleMapsEmbedUrl;
+  if (cong.socialType !== undefined) dbRecord.social_type = cong.socialType;
+  if (cong.socialUrl !== undefined) dbRecord.social_url = cong.socialUrl;
+  if (cong.imageUrl !== undefined) dbRecord.image_url = cong.imageUrl;
+  if (cong.sortOrder !== undefined) dbRecord.sort_order = cong.sortOrder;
+  if (cong.isActive !== undefined) dbRecord.is_active = cong.isActive;
+
+  const { data, error } = await supabase
+    .from('district_congregations')
+    .update(dbRecord)
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    console.error('[Supabase] Erro ao atualizar congregação:', error);
+    throw new Error(`Erro ao atualizar congregação no Supabase: ${error.message}`);
+  }
+
+  fetchAndNotifyDistrictCongregations();
+  return data ? mapDistrictCongregation(data[0]) : null;
+}
+
+export async function deleteDistrictCongregation(id: string) {
+  const { error } = await supabase
+    .from('district_congregations')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('[Supabase] Erro ao excluir congregação:', error);
+    throw new Error(`Erro ao excluir congregação no Supabase: ${error.message}`);
+  }
+
+  fetchAndNotifyDistrictCongregations();
+  return true;
+}
+
 
 

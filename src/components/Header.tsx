@@ -17,7 +17,7 @@ interface HeaderProps {
 // PROGRAMMING SUBMENU DEFINITION (ONLY PAGE NAMES)
 const PROGRAMMING_SUBITEMS = [
   { id: 'schedule' as PageId, label: 'Eventos Locais' },
-  { id: 'district-events' as PageId, label: 'Eventos Distritais' },
+  { id: 'district-events' as PageId, label: 'Distrito de Campinas' },
   { id: 'regional-events' as PageId, label: 'Eventos Regionais' },
 ];
 

@@ -37,7 +37,14 @@ import {
   getDashboardInvites,
   deleteDashboardInvite,
   getInviteByToken,
-  acceptDashboardInvite
+  acceptDashboardInvite,
+  fetchDistrictInfo,
+  updateDistrictInfo,
+  subscribeDistrictCongregations,
+  addDistrictCongregation,
+  updateDistrictCongregation,
+  deleteDistrictCongregation,
+  DEFAULT_DISTRICT_INFO
 } from '../services/firestoreService';
 import { 
   uploadFile,
@@ -61,7 +68,7 @@ import { SPOTIFY_PLAYLIST } from '../data/churchData';
 import { formatDateToDisplay, formatDateToDb, formatEventDateRange } from '../utils/dateUtils';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -71,7 +78,7 @@ import {
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
   Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music,
   Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck, UserPlus, Shield, Key, Copy, XCircle, UserCheck, Crown, Radio, HeartHandshake, UserX, ExternalLink, Eye, EyeOff,
-  Tent, HeartPulse, ChevronDown, ChevronUp, FileText, User as UserIcon
+  Tent, HeartPulse, ChevronDown, ChevronUp, FileText, User as UserIcon, Building2, Globe, Map
 } from 'lucide-react';
 
 interface AdminProps {
@@ -102,7 +109,19 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [submittingLogin, setSubmittingLogin] = useState(false);
 
   // Navigation tab in Admin CMS
-  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites'>('schedules');
+  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district'>('schedules');
+
+  // District CMS State
+  const [districtInfoState, setDistrictInfoState] = useState<DistrictInfo>(DEFAULT_DISTRICT_INFO);
+  const [districtCongregations, setDistrictCongregations] = useState<DistrictCongregation[]>([]);
+  const [isSavingDistrictInfo, setIsSavingDistrictInfo] = useState(false);
+
+  // Congregation Modals
+  const [congregationModalOpen, setCongregationModalOpen] = useState(false);
+  const [editingCongregation, setEditingCongregation] = useState<DistrictCongregation | null>(null);
+  const [isSavingCongregation, setIsSavingCongregation] = useState(false);
+  const [deleteCongregationModalOpen, setDeleteCongregationModalOpen] = useState(false);
+  const [congregationToDelete, setCongregationToDelete] = useState<DistrictCongregation | null>(null);
 
   // Invites & Users Management State (Admin only)
   const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
@@ -222,6 +241,9 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     const unsubSermons = subscribeSermons((data) => setSermons(data));
     const unsubMin = subscribeMinistries((data) => setMinistries(data));
     const unsubPrayers = subscribePrayerRequests((data) => setPrayers(data));
+    const unsubDistrict = subscribeDistrictCongregations((data) => setDistrictCongregations(data));
+    fetchDistrictInfo().then((info) => setDistrictInfoState(info));
+
     const unsubSettings = subscribeChurchSettings((settings) => {
       setChurchSettings(settings);
       if (settings.spotifyUrl) {
@@ -243,6 +265,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       unsubSermons();
       unsubMin();
       unsubPrayers();
+      unsubDistrict();
       unsubSettings();
     };
   }, [user]);
@@ -305,8 +328,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   useEffect(() => {
     if (!user) return;
 
-    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites'>> = {
-      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites'],
+    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district'>> = {
+      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites', 'district'],
       media: ['sermons', 'events'],
       intercession: ['prayers'],
     };
@@ -1917,6 +1940,27 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     {prayers.length}
                   </span>
                 </div>
+              </button>
+            )}
+
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setActiveTab('district')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'district'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Building2 className="w-4 h-4 text-amber-500" />
+                  <span>Distrito & Congregações</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'district' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {districtCongregations.length}
+                </span>
               </button>
             )}
 
@@ -4614,6 +4658,524 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* PAINEL DO DISTRITO & CONGREGAÇÕES */}
+      {activeTab === 'district' && (
+        <div className="space-y-10">
+          {/* Header */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-xs uppercase mb-2">
+                <Building2 className="w-4 h-4" />
+                <span>Página Institucional do Distrito</span>
+              </div>
+              <h2 className="text-2xl font-black uppercase text-slate-900">
+                Distrito Missionário de Campinas
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Gerencie o conteúdo institucional do distrito e cadastre as congregações locais ativas.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setEditingCongregation(null);
+                setCongregationModalOpen(true);
+              }}
+              className="px-5 py-3 rounded-xl bg-[#102bde] text-white font-black text-xs uppercase tracking-wider hover:bg-[#0d23b8] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nova Congregação</span>
+            </button>
+          </div>
+
+          {/* Form 1: Informações Gerais do Distrito */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black uppercase text-slate-900">
+                  Informações Institucionais do Distrito
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Estes dados serão exibidos no cabeçalho e na apresentação da página do Distrito.
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSavingDistrictInfo(true);
+                try {
+                  const updated = await updateDistrictInfo(districtInfoState);
+                  setDistrictInfoState(updated);
+                  alert('Informações do distrito salvas com sucesso!');
+                } catch (err: any) {
+                  alert(err.message || 'Erro ao salvar distrito.');
+                } finally {
+                  setIsSavingDistrictInfo(false);
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">
+                    Título Principal *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={districtInfoState.title}
+                    onChange={(e) => setDistrictInfoState({ ...districtInfoState, title: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">
+                    Subtítulo / Região *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={districtInfoState.subtitle}
+                    onChange={(e) => setDistrictInfoState({ ...districtInfoState, subtitle: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  Texto de Apresentação *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={districtInfoState.description}
+                  onChange={(e) => setDistrictInfoState({ ...districtInfoState, description: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  Texto de Propósito Regional / Missão *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={districtInfoState.purpose}
+                  onChange={(e) => setDistrictInfoState({ ...districtInfoState, purpose: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">
+                  URL da Imagem de Banner/Destaque
+                </label>
+                <input
+                  type="text"
+                  value={districtInfoState.bannerUrl || ''}
+                  onChange={(e) => setDistrictInfoState({ ...districtInfoState, bannerUrl: e.target.value })}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={isSavingDistrictInfo}
+                  className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-wider text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                >
+                  {isSavingDistrictInfo ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Salvar Informações do Distrito</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Section 2: Lista de Congregações Cadastradas */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-lg font-black uppercase text-slate-900">
+                  Congregações do Distrito ({districtCongregations.length})
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Todas as igrejas locais cadastradas que compõem o Distrito Missionário de Campinas.
+                </p>
+              </div>
+            </div>
+
+            {districtCongregations.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs font-bold text-slate-600 uppercase">Nenhuma congregação cadastrada</p>
+                <p className="text-xs text-slate-400">Clique no botão "Nova Congregação" para adicionar a primeira igreja do distrito.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4">Imagem / Cidade</th>
+                      <th className="py-3 px-4">Nome da Congregação</th>
+                      <th className="py-3 px-4">Pastor Responsável</th>
+                      <th className="py-3 px-4">WhatsApp & Endereço</th>
+                      <th className="py-3 px-4">Ordem</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {districtCongregations.map((cong) => (
+                      <tr key={cong.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={cong.imageUrl || 'https://images.unsplash.com/photo-1548625361-181358913a0e?auto=format&fit=crop&q=80&w=200'}
+                              alt={cong.name}
+                              className="w-12 h-10 object-cover rounded-lg border border-slate-200 shadow-xs"
+                            />
+                            <span className="font-bold text-slate-900 bg-slate-100 px-2 py-1 rounded text-[11px] uppercase">
+                              {cong.city}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-black text-slate-900 uppercase block">{cong.name}</span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 font-semibold">
+                          {cong.pastorName || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">
+                          <span className="block font-mono text-[11px] text-emerald-700 font-bold">{cong.whatsapp}</span>
+                          <span className="block text-[11px] text-slate-500 line-clamp-1">{cong.address}</span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-500">
+                          #{cong.sortOrder}
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await updateDistrictCongregation(cong.id, { isActive: !cong.isActive });
+                              } catch (err: any) {
+                                alert(err.message);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase cursor-pointer transition-colors ${
+                              cong.isActive
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                            }`}
+                          >
+                            {cong.isActive ? 'Ativa' : 'Inativa'}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingCongregation(cong);
+                                setCongregationModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-600 hover:text-[#102bde] hover:bg-blue-50 transition-colors cursor-pointer"
+                              title="Editar Congregação"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setCongregationToDelete(cong);
+                                setDeleteCongregationModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Excluir Congregação"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADICIONAR / EDITAR CONGREGAÇÃO */}
+      {congregationModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-6 my-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-black text-lg uppercase text-slate-900">
+                {editingCongregation ? 'Editar Congregação' : 'Nova Congregação do Distrito'}
+              </h3>
+              <button
+                onClick={() => setCongregationModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSavingCongregation(true);
+
+                const form = e.currentTarget;
+                const formData = new FormData(form);
+
+                const dataPayload = {
+                  name: formData.get('name') as string,
+                  city: formData.get('city') as string,
+                  pastorName: formData.get('pastorName') as string,
+                  address: formData.get('address') as string,
+                  whatsapp: formData.get('whatsapp') as string,
+                  googleMapsEmbedUrl: formData.get('googleMapsEmbedUrl') as string,
+                  socialType: formData.get('socialType') as 'facebook' | 'instagram' | 'youtube',
+                  socialUrl: formData.get('socialUrl') as string,
+                  imageUrl: formData.get('imageUrl') as string,
+                  sortOrder: Number(formData.get('sortOrder')) || 0,
+                  isActive: formData.get('isActive') === 'on',
+                };
+
+                try {
+                  if (editingCongregation) {
+                    await updateDistrictCongregation(editingCongregation.id, dataPayload);
+                  } else {
+                    await addDistrictCongregation(dataPayload);
+                  }
+                  setCongregationModalOpen(false);
+                  setEditingCongregation(null);
+                } catch (err: any) {
+                  alert(err.message || 'Erro ao salvar congregação.');
+                } finally {
+                  setIsSavingCongregation(false);
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Nome da Congregação *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    defaultValue={editingCongregation?.name || ''}
+                    placeholder="Ex: IMW Artur Nogueira"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Cidade *</label>
+                  <input
+                    type="text"
+                    name="city"
+                    required
+                    defaultValue={editingCongregation?.city || ''}
+                    placeholder="Ex: Artur Nogueira"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Pastor(a) Responsável</label>
+                <input
+                  type="text"
+                  name="pastorName"
+                  defaultValue={editingCongregation?.pastorName || ''}
+                  placeholder="Ex: Pr. Carlos & Miss. Ana"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Endereço Completo *</label>
+                <input
+                  type="text"
+                  name="address"
+                  required
+                  defaultValue={editingCongregation?.address || ''}
+                  placeholder="Ex: Rua Duque de Caxias, 450 - Centro, Artur Nogueira - SP"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-900 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">WhatsApp de Contato *</label>
+                  <input
+                    type="tel"
+                    name="whatsapp"
+                    required
+                    defaultValue={editingCongregation?.whatsapp || ''}
+                    placeholder="Ex: 19991234567"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Ordem de Exibição</label>
+                  <input
+                    type="number"
+                    name="sortOrder"
+                    defaultValue={editingCongregation?.sortOrder ?? (districtCongregations.length + 1)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">URL do Iframe/Embed do Google Maps (Opcional)</label>
+                <input
+                  type="text"
+                  name="googleMapsEmbedUrl"
+                  defaultValue={editingCongregation?.googleMapsEmbedUrl || ''}
+                  placeholder="https://maps.google.com/maps?q=...&output=embed"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-[11px] text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Rede Social</label>
+                  <select
+                    name="socialType"
+                    defaultValue={editingCongregation?.socialType || 'instagram'}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 bg-white"
+                  >
+                    <option value="instagram">Instagram</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="youtube">YouTube</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">URL da Rede Social</label>
+                  <input
+                    type="text"
+                    name="socialUrl"
+                    defaultValue={editingCongregation?.socialUrl || ''}
+                    placeholder="https://instagram.com/..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">URL da Foto da Congregação</label>
+                <input
+                  type="text"
+                  name="imageUrl"
+                  defaultValue={editingCongregation?.imageUrl || ''}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  name="isActive"
+                  defaultChecked={editingCongregation ? editingCongregation.isActive : true}
+                  className="w-4 h-4 text-[#102bde] rounded border-slate-300"
+                />
+                <label htmlFor="isActive" className="font-bold uppercase text-slate-800 text-xs cursor-pointer">
+                  Exibir esta congregação no site público
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCongregationModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase hover:bg-slate-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCongregation}
+                  className="px-5 py-2 rounded-xl bg-[#102bde] text-white font-black uppercase tracking-wider hover:bg-[#0d23b8] cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingCongregation ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Salvar Congregação</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EXCLUIR CONGREGAÇÃO */}
+      {deleteCongregationModalOpen && congregationToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
+            <div className="flex items-center gap-3 text-red-600">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="font-black text-lg uppercase">Excluir Congregação?</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tem certeza que deseja excluir a congregação <strong className="text-slate-900 uppercase">{congregationToDelete.name}</strong>? Ela deixará de ser exibida no site do distrito.
+            </p>
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setDeleteCongregationModalOpen(false);
+                  setCongregationToDelete(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs uppercase hover:bg-slate-200 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await deleteDistrictCongregation(congregationToDelete.id);
+                    setDeleteCongregationModalOpen(false);
+                    setCongregationToDelete(null);
+                  } catch (err: any) {
+                    alert(err.message);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white font-black text-xs uppercase hover:bg-red-700 transition-all cursor-pointer"
+              >
+                Excluir
+              </button>
+            </div>
           </div>
         </div>
       )}
