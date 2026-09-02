@@ -189,7 +189,7 @@ export const CHURCH_INFO = {
 export const PASTORS_AND_LEADERS: Leader[] = [
   {
     id: 'pastor-gessivaldo',
-    name: 'Pr. Gessivaldo',
+    name: 'Pr. Gessivaldo Gomes Rebouças',
     role: 'Pastor',
     bio: 'À frente da IMW Cosmópolis, com dedicação ao ensino da Palavra, pastoreio de famílias e fortalecimento do compromisso missionário da igreja.',
     photoUrl: '/foto-pastor-pregando.png',

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation } from '../types';
-import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA } from '../data/churchData';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation, Leader } from '../types';
+import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA, PASTORS_AND_LEADERS } from '../data/churchData';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { 
   extractYoutubeId, 
@@ -2398,7 +2398,7 @@ export const INITIAL_DISTRICT_CONGREGATIONS: DistrictCongregation[] = [
     name: 'IMW Cosmópolis (Sede)',
     city: 'Cosmópolis',
     slug: 'cosmopolis',
-    pastorName: 'Pr. Gessivaldo',
+    pastorName: 'Pr. Gessivaldo Gomes Rebouças',
     address: 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP',
     whatsapp: '19998765432',
     googleMapsEmbedUrl: 'https://maps.google.com/maps?q=R.+Marcelo+Lugli,+1457+-+Jardim+Planalto,+Cosm%C3%B3polis+-+SP&output=embed',

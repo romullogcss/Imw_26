@@ -72,7 +72,7 @@ import { SPOTIFY_PLAYLIST } from '../data/churchData';
 import { formatDateToDisplay, formatDateToDb, formatEventDateRange } from '../utils/dateUtils';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
-import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation } from '../types';
+import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation, Leader } from '../types';
 import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
@@ -5398,8 +5398,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     type="text"
                     name="name"
                     required
-                    defaultValue={editingPastor?.name || 'Pr. Gessivaldo'}
-                    placeholder="Ex: Pr. Gessivaldo"
+                    defaultValue={editingPastor?.name || 'Pr. Gessivaldo Gomes Rebouças'}
+                    placeholder="Ex: Pr. Gessivaldo Gomes Rebouças"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
                   />
                 </div>
