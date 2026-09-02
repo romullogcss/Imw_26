@@ -17,7 +17,7 @@ interface HeaderProps {
 // PROGRAMMING SUBMENU DEFINITION (ONLY PAGE NAMES)
 const PROGRAMMING_SUBITEMS = [
   { id: 'schedule' as PageId, label: 'Eventos Locais' },
-  { id: 'district-events' as PageId, label: 'Distrito de Campinas' },
+  { id: 'district-events' as PageId, label: 'Distrito Missionário de Campinas' },
   { id: 'regional-events' as PageId, label: 'Eventos Regionais' },
 ];
 
@@ -359,6 +359,25 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
+            {/* 6. DISTRITO MISSIONÁRIO DE CAMPINAS */}
+            <button
+              onClick={() => handleNavClick('district-events')}
+              className={`relative px-3 py-2 transition-all cursor-pointer rounded ${
+                currentPage === 'district-events'
+                  ? 'text-[#102bde] font-extrabold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              DISTRITO MISSIONÁRIO DE CAMPINAS
+              {currentPage === 'district-events' && (
+                <motion.div
+                  layoutId="activeNavIndicator"
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#102bde] rounded-full"
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                />
+              )}
+            </button>
+
             {/* 6. DOAÇÕES */}
             <button
               onClick={() => handleNavClick('donations')}
@@ -571,6 +590,19 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <span>MENSAGENS</span>
                 <ChevronRight className={`w-4 h-4 ${currentPage === 'sermons' ? 'text-[#102bde]' : 'text-slate-400'}`} />
+              </button>
+
+              {/* 6. DISTRITO MISSIONÁRIO DE CAMPINAS */}
+              <button
+                onClick={() => handleNavClick('district-events')}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-sans text-xs font-black tracking-wider uppercase transition-all cursor-pointer ${
+                  currentPage === 'district-events'
+                    ? 'bg-[#102bde]/10 text-[#102bde] border border-[#102bde]/20'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <span>DISTRITO MISSIONÁRIO DE CAMPINAS</span>
+                <ChevronRight className={`w-4 h-4 ${currentPage === 'district-events' ? 'text-[#102bde]' : 'text-slate-400'}`} />
               </button>
 
               {/* 6. DOAÇÕES */}

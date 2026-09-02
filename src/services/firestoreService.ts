@@ -358,6 +358,15 @@ export interface ChurchSettingsData {
   logoUrl?: string;
   spotifyUrl?: string;
   spotifyEmbedUrl?: string;
+  pixKey?: string;
+  pixKeyNormalized?: string;
+  pixKeyType?: string;
+  pixFavoredName?: string;
+  pixBankName?: string;
+  pixCity?: string;
+  pixStatus?: string;
+  pixAgency?: string;
+  pixAccount?: string;
   updatedAt?: any;
 }
 
@@ -367,6 +376,15 @@ function mapSettings(row: any): ChurchSettingsData {
     logoUrl: row.logo_url || row.logoUrl || '',
     spotifyUrl: row.spotify_url || row.spotifyUrl || '',
     spotifyEmbedUrl: row.spotify_embed_url || row.spotifyEmbedUrl || '',
+    pixKey: row.pix_key || row.pixKey || '13.823.676/0028-47',
+    pixKeyNormalized: row.pix_key_normalized || row.pixKeyNormalized || '13823676002847',
+    pixKeyType: row.pix_key_type || row.pixKeyType || 'CNPJ',
+    pixFavoredName: row.pix_favored_name || row.pixFavoredName || 'IMW 3 R Cosmopolis',
+    pixBankName: row.pix_bank_name || row.pixBankName || 'Santander',
+    pixCity: row.pix_city || row.pixCity || 'Cosmopolis',
+    pixStatus: row.pix_status || row.pixStatus || 'ativo',
+    pixAgency: row.pix_agency || row.pixAgency || '—',
+    pixAccount: row.pix_account || row.pixAccount || '—',
     updatedAt: row.updated_at || row.updatedAt || null,
   };
 }
@@ -1595,14 +1613,24 @@ export function subscribeChurchSettings(callback: (settings: ChurchSettingsData)
   };
 }
 
-export async function updateChurchSettings(settings: ChurchSettingsData) {
-  const payload = {
+export async function updateChurchSettings(settings: Partial<ChurchSettingsData>) {
+  const payload: any = {
     id: 'main',
-    logo_url: settings.logoUrl || '',
-    spotify_url: settings.spotifyUrl || '',
-    spotify_embed_url: settings.spotifyEmbedUrl || '',
     updated_at: new Date().toISOString(),
   };
+
+  if (settings.logoUrl !== undefined) payload.logo_url = settings.logoUrl;
+  if (settings.spotifyUrl !== undefined) payload.spotify_url = settings.spotifyUrl;
+  if (settings.spotifyEmbedUrl !== undefined) payload.spotify_embed_url = settings.spotifyEmbedUrl;
+  if (settings.pixKey !== undefined) payload.pix_key = settings.pixKey;
+  if (settings.pixKeyNormalized !== undefined) payload.pix_key_normalized = settings.pixKeyNormalized;
+  if (settings.pixKeyType !== undefined) payload.pix_key_type = settings.pixKeyType;
+  if (settings.pixFavoredName !== undefined) payload.pix_favored_name = settings.pixFavoredName;
+  if (settings.pixBankName !== undefined) payload.pix_bank_name = settings.pixBankName;
+  if (settings.pixCity !== undefined) payload.pix_city = settings.pixCity;
+  if (settings.pixStatus !== undefined) payload.pix_status = settings.pixStatus;
+  if (settings.pixAgency !== undefined) payload.pix_agency = settings.pixAgency;
+  if (settings.pixAccount !== undefined) payload.pix_account = settings.pixAccount;
 
   let { data, error } = await supabase
     .from('church_settings')
@@ -2386,7 +2414,7 @@ async function markInviteAccepted(token: string): Promise<void> {
 export const DEFAULT_DISTRICT_INFO: DistrictInfo = {
   id: 'campinas',
   title: 'Distrito Missionário de Campinas',
-  subtitle: 'Igreja Metodista Wesleyana • 5ª Região Eclesiástica',
+  subtitle: 'Igreja Metodista Wesleyana • 3ª Região Eclesiástica',
   description: 'O Distrito Missionário de Campinas reúne congregações unidas na proclamação do Evangelho de Cristo, promovendo comunhão, edificação espiritual, pastoreio de famílias e evangelismo estratégico na região.',
   purpose: 'Nossa missão regional é fortalecer cada comunidade local, formar discípulos comprometidos com a Palavra de Deus e servir nossas cidades com amor, santidade bíblica e acolhimento humano.',
   bannerUrl: 'https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1600',

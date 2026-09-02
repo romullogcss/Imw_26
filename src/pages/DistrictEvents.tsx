@@ -123,7 +123,7 @@ export const DistrictEventsPage: React.FC<DistrictEventsPageProps> = ({ onNaviga
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-widest backdrop-blur-md">
             <Building2 className="w-4 h-4 text-amber-400" />
-            <span>5ª REGIÃO ECLESIÁSTICA</span>
+            <span>3ª REGIÃO ECLESIÁSTICA</span>
           </div>
 
           <h1 className="font-sans font-black text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tight text-white max-w-4xl mx-auto leading-tight">

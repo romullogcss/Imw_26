@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { PageId, Sermon, ScheduleItem } from '../types';
+import { PageId, Sermon, ScheduleItem, Leader } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
-import { subscribeSermons, subscribeSchedules } from '../services/firestoreService';
+import { subscribeSermons, subscribeSchedules, subscribePastors } from '../services/firestoreService';
 import { formatDateToDisplay, generateGoogleCalendarUrl } from '../utils/dateUtils';
 import { SpecialEventsSlider } from '../components/SpecialEventsSlider';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
   Clock, Users, Sparkles, Cross, ArrowRight, Video, Music,
-  Compass, ExternalLink, Zap
+  Compass, ExternalLink, Zap, HeartHandshake, Building2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -19,6 +19,7 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => {
   const [sermonsList, setSermonsList] = useState<Sermon[]>([]);
   const [scheduleList, setScheduleList] = useState<ScheduleItem[]>([]);
+  const [pastorsList, setPastorsList] = useState<Leader[]>([]);
 
   useEffect(() => {
     const unsubSermons = subscribeSermons((items) => {
@@ -27,11 +28,24 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
     const unsubSched = subscribeSchedules((items) => {
       setScheduleList(items || []);
     });
+    const unsubPastors = subscribePastors((items) => {
+      const active = (items || []).filter((item) => item.isActive !== false);
+      setPastorsList(active);
+    });
+
     return () => {
       unsubSermons();
       unsubSched();
+      unsubPastors();
     };
   }, []);
+
+  const mainLeader = pastorsList[0] || {
+    name: 'Pr. Gessivaldo & Miss. Eugênia',
+    role: 'Pastores da IMW Cosmópolis',
+    bio: 'À frente da IMW Cosmópolis, o Pr. Gessivaldo e a Miss. Eugênia dedicam-se ao ensino da Palavra, ao pastoreio das famílias, ao acolhimento e ao fortalecimento do compromisso missionário e distrital da igreja.',
+    photoUrl: '/foto-pastor-gessivaldo-e-missionaria-eugenia.png',
+  };
 
   const latestSermon = sermonsList[0];
 
@@ -465,69 +479,102 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
         </div>
       </section>
 
-      {/* PASTORAL WELCOME SECTION */}
+      {/* PASTORAL & INSTITUTIONAL WELCOME SECTION */}
       <section className="py-16 md:py-24 bg-white border-t border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             
+            {/* Left Column: Photo Card of Pr. Gessivaldo & Miss. Eugênia */}
             <div className="lg:col-span-5 relative">
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xl">
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xl group">
                 <img
-                  src="/foto-pastor-gessivaldo-e-missionaria-eugenia.png"
-                  alt="Pr. Gessivaldo Gomes Rebouças - IMW Cosmópolis"
+                  src={mainLeader.photoUrl || '/foto-pastor-gessivaldo-e-missionaria-eugenia.png'}
+                  alt="Pr. Gessivaldo e Miss. Eugênia - IMW Cosmópolis"
                   referrerPolicy="no-referrer"
-                  className="w-full h-auto object-cover transform hover:scale-105 transition-transform duration-700"
+                  className="w-full h-auto min-h-[380px] object-cover transform group-hover:scale-105 transition-transform duration-700"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent" />
-                <div className="absolute bottom-6 left-6 right-6 text-white">
-                  <p className="font-sans font-black text-xl uppercase text-white">Pr. Gessivaldo Gomes Rebouças</p>
-                  <p className="text-xs font-sans font-bold text-[#102bde] uppercase tracking-widest mt-1">Pastor da IMW Cosmópolis</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-900/30 to-transparent" />
+                
+                <div className="absolute bottom-6 left-6 right-6 text-white space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#102bde] text-white text-[10px] font-sans font-black uppercase tracking-wider shadow-sm">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Liderança Pastoral</span>
+                  </div>
+                  <h3 className="font-sans font-black text-2xl uppercase text-white leading-tight">
+                    Pr. Gessivaldo & Miss. Eugênia
+                  </h3>
+                  <p className="text-xs font-sans font-bold text-blue-300 uppercase tracking-widest">
+                    Pastores da IMW Cosmópolis
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Right Column: Institutional & Relational Presentation */}
             <div className="lg:col-span-7 space-y-6">
-              <span className="text-[#102bde] text-xs font-sans font-black uppercase tracking-widest block">
-                CORAÇÃO DA IGREJA
-              </span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#102bde] text-xs font-sans font-black uppercase tracking-widest">
+                <HeartHandshake className="w-4 h-4 text-[#102bde]" />
+                <span>Seja Bem-Vindo • IMW Cosmópolis</span>
+              </div>
 
               <h2 className="font-sans font-black text-3xl sm:text-5xl uppercase text-slate-900 leading-tight">
-                UMA CASA PARA TODA A SUA FAMÍLIA
+                UMA FAMÍLIA DE FÉ, ACOLHIMENTO E PROPÓSITO
               </h2>
 
               <p className="text-slate-600 leading-relaxed text-sm sm:text-base font-medium">
-                Acreditamos que a igreja não é um edifício, mas sim uma família reunida em torno do amor de Jesus Cristo. Na IMW Cosmópolis, você encontrará um lugar seguro para crescer espiritualmente, fazer amigos sinceros e servir à comunidade.
+                Sob a liderança dedicada do <strong className="text-slate-900 font-bold">Pr. Gessivaldo</strong> e da <strong className="text-slate-900 font-bold">Miss. Eugênia</strong>, a Igreja Metodista Wesleyana em Cosmópolis é uma comunidade de fé calorosa e viva. Nosso compromisso é acolher cada visitante, cuidar de cada família e discipular pessoas no amor de Jesus Cristo.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div className="p-5 rounded-xl bg-slate-50 border border-slate-200">
-                  <h3 className="font-sans font-bold text-slate-900 text-sm uppercase flex items-center gap-2 mb-2">
-                    <BookOpen className="w-4 h-4 text-[#102bde]" />
-                    <span>PALAVRA BÍBLICA</span>
+              {/* 3 Relational & Institutional Pillar Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-all">
+                  <h3 className="font-sans font-bold text-slate-900 text-xs uppercase flex items-center gap-2 mb-1.5">
+                    <HeartHandshake className="w-4 h-4 text-[#102bde]" />
+                    <span>Cuidado Pastoral</span>
                   </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    Mensagens práticas e doutrina firme para fortalecer a sua fé no dia a dia.
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                    Acompanhamento, oração e atenção de perto com o Pr. Gessivaldo & Miss. Eugênia.
                   </p>
                 </div>
 
-                <div className="p-5 rounded-xl bg-slate-50 border border-slate-200">
-                  <h3 className="font-sans font-bold text-slate-900 text-sm uppercase flex items-center gap-2 mb-2">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-all">
+                  <h3 className="font-sans font-bold text-slate-900 text-xs uppercase flex items-center gap-2 mb-1.5">
                     <Users className="w-4 h-4 text-blue-600" />
-                    <span>COMUNHÃO VERDADEIRA</span>
+                    <span>Comunhão Local</span>
                   </h3>
-                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    Ministérios dedicados a todas as faixas etárias e fases da vida.
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                    Ambiente acolhedor e ministérios ativos para todas as idades e famílias.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 transition-all">
+                  <h3 className="font-sans font-bold text-slate-900 text-xs uppercase flex items-center gap-2 mb-1.5">
+                    <Building2 className="w-4 h-4 text-[#102bde]" />
+                    <span>Conexão Distrital</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                    Integrados ao Distrito Wesleyano para ações evangelísticas, eventos e missões.
                   </p>
                 </div>
               </div>
 
-              <div className="pt-3">
+              {/* CTAs Row */}
+              <div className="pt-4 flex flex-wrap items-center gap-4">
+                <button
+                  onClick={() => onNavigate('district-events')}
+                  className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md hover:shadow-lg transform active:scale-95"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>CONHEÇA O DISTRITO</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={() => onNavigate('history')}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#102bde] hover:bg-[#0d23b8] text-white font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer shadow-md"
+                  className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-sans font-black text-xs uppercase tracking-widest transition-all cursor-pointer border border-slate-300"
                 >
-                  <span>CONHEÇA NOSSA HISTÓRIA</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <Compass className="w-4 h-4 text-[#102bde]" />
+                  <span>NOSSA HISTÓRIA</span>
                 </button>
               </div>
             </div>

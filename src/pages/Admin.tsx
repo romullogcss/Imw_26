@@ -77,12 +77,17 @@ import { Logo } from '../components/Logo';
 import { YouTubePlayer } from '../components/YouTubePlayer';
 import { SpotifyPlayer } from '../components/SpotifyPlayer';
 import { 
+  generatePixPayload, 
+  generateQrCodeDataUrl, 
+  DEFAULT_PIX_CONFIG 
+} from '../utils/pixUtils';
+import { 
   Lock, Mail, LogOut, Plus, Edit2, Trash2, Calendar, Clock, 
   MapPin, Video, Church, ShieldAlert, Check, X, ArrowLeft,
   Sparkles, Layers, Youtube, Tag, AlertCircle, Database,
   Upload, Image as ImageIcon, Loader2, CheckCircle2, ImagePlus, Users, HelpCircle, RefreshCw, Music,
   Heart, Phone, Archive, Filter, Search, MessageCircle, ShieldCheck, UserPlus, Shield, Key, Copy, XCircle, UserCheck, Crown, Radio, HeartHandshake, UserX, ExternalLink, Eye, EyeOff,
-  Tent, HeartPulse, ChevronDown, ChevronUp, FileText, User as UserIcon, Building2, Globe, Map
+  Tent, HeartPulse, ChevronDown, ChevronUp, FileText, User as UserIcon, Building2, Globe, Map, Smartphone, Code2, QrCode
 } from 'lucide-react';
 
 interface AdminProps {
@@ -113,7 +118,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [submittingLogin, setSubmittingLogin] = useState(false);
 
   // Navigation tab in Admin CMS
-  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>('schedules');
+  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'donations_pix' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>('schedules');
 
   // Pastoral Body CMS State
   const [pastorsList, setPastorsList] = useState<Leader[]>([]);
@@ -223,10 +228,20 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [seedingLoading, setSeedingLoading] = useState(false);
 
-  // Church Settings (Spotify link, branding)
+  // Church Settings (Spotify link, branding, Pix)
   const [churchSettings, setChurchSettings] = useState<ChurchSettingsData>({});
   const [spotifyUrlInput, setSpotifyUrlInput] = useState('');
   const [savingSpotify, setSavingSpotify] = useState(false);
+
+  // Pix CMS State
+  const [pixKeyInput, setPixKeyInput] = useState('13.823.676/0028-47');
+  const [pixKeyNormInput, setPixKeyNormInput] = useState('13823676002847');
+  const [pixKeyTypeInput, setPixKeyTypeInput] = useState('CNPJ');
+  const [pixFavoredNameInput, setPixFavoredNameInput] = useState('IMW 3 R Cosmopolis');
+  const [pixBankNameInput, setPixBankNameInput] = useState('Santander');
+  const [pixCityInput, setPixCityInput] = useState('Cosmopolis');
+  const [savingPix, setSavingPix] = useState(false);
+  const [pixPreviewQrUrl, setPixPreviewQrUrl] = useState<string>('');
 
   // Track auth status
   useEffect(() => {
@@ -264,6 +279,12 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       } else {
         setSpotifyUrlInput(SPOTIFY_PLAYLIST.spotifyUrl);
       }
+      if (settings.pixKey) setPixKeyInput(settings.pixKey);
+      if (settings.pixKeyNormalized) setPixKeyNormInput(settings.pixKeyNormalized);
+      if (settings.pixKeyType) setPixKeyTypeInput(settings.pixKeyType);
+      if (settings.pixFavoredName) setPixFavoredNameInput(settings.pixFavoredName);
+      if (settings.pixBankName) setPixBankNameInput(settings.pixBankName);
+      if (settings.pixCity) setPixCityInput(settings.pixCity);
     });
 
     // Automatically check and import initial site data to Supabase if tables are empty
@@ -342,9 +363,9 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   useEffect(() => {
     if (!user) return;
 
-    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>> = {
-      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites', 'district', 'pastors'],
-      media: ['sermons', 'events'],
+    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'donations_pix' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>> = {
+      admin: ['schedules', 'events', 'sermons', 'donations_pix', 'ministries', 'prayers', 'users_invites', 'district', 'pastors'],
+      media: ['sermons', 'events', 'donations_pix'],
       intercession: ['prayers'],
     };
 
@@ -353,6 +374,42 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       setActiveTab(allowed[0]);
     }
   }, [userRole, activeTab, user]);
+
+  // Generate QR Code preview for Pix CMS
+  useEffect(() => {
+    const payload = generatePixPayload({
+      keyNormalized: pixKeyNormInput || pixKeyInput.replace(/\D/g, ''),
+      favoredName: pixFavoredNameInput,
+      city: pixCityInput,
+      txid: '***',
+    });
+    generateQrCodeDataUrl(payload, 280)
+      .then((url) => setPixPreviewQrUrl(url))
+      .catch((err) => console.error('Error generating preview QR:', err));
+  }, [pixKeyInput, pixKeyNormInput, pixFavoredNameInput, pixCityInput]);
+
+  const handleSavePixSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPix(true);
+    setStatusMsg(null);
+    try {
+      const cleanNorm = pixKeyNormInput.replace(/\D/g, '') || pixKeyInput.replace(/\D/g, '');
+      await updateChurchSettings({
+        pixKey: pixKeyInput.trim(),
+        pixKeyNormalized: cleanNorm,
+        pixKeyType: pixKeyTypeInput.trim(),
+        pixFavoredName: pixFavoredNameInput.trim(),
+        pixBankName: pixBankNameInput.trim(),
+        pixCity: pixCityInput.trim(),
+        pixStatus: 'ativo',
+      });
+      setStatusMsg({ type: 'success', text: 'Dados do Pix e Doações salvos no CMS com sucesso!' });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Erro ao salvar dados do Pix.' });
+    } finally {
+      setSavingPix(false);
+    }
+  };
 
   // Load All Profiles and Invites for Admin Tab
   const loadInvitesAndUsers = async () => {
@@ -1908,6 +1965,27 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
               </button>
             )}
 
+            {(userRole === 'admin' || userRole === 'media') && (
+              <button
+                onClick={() => setActiveTab('donations_pix')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'donations_pix'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <HeartHandshake className="w-4 h-4 text-emerald-500" />
+                  <span>Doações & Pix</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'donations_pix' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800 font-bold'
+                }`}>
+                  Pix
+                </span>
+              </button>
+            )}
+
             {(userRole === 'admin') && (
               <button
                 onClick={() => setActiveTab('ministries')}
@@ -2487,6 +2565,201 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: DOAÇÕES & PIX CMS */}
+          {activeTab === 'donations_pix' && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <span className="text-emerald-700 text-xs font-black uppercase tracking-widest block mb-0.5">
+                    CMS DE DOAÇÕES & DADOS BANCÁRIOS
+                  </span>
+                  <h2 className="font-black text-2xl uppercase text-slate-900 flex items-center gap-2">
+                    <HeartHandshake className="w-6 h-6 text-emerald-600" />
+                    <span>Configuração do Pix Oficial</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                    Gerencie os dados oficiais do Pix (CNPJ, nome do favorecido, banco) exibidos aos visitantes na página de Doações.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-black uppercase rounded-full border border-emerald-200">
+                  Supabase Live
+                </span>
+              </div>
+
+              <form onSubmit={handleSavePixSettings} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Tipo da Chave */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Tipo de Chave Pix
+                    </label>
+                    <select
+                      value={pixKeyTypeInput}
+                      onChange={(e) => setPixKeyTypeInput(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    >
+                      <option value="CNPJ">CNPJ</option>
+                      <option value="CPF">CPF</option>
+                      <option value="E-mail">E-mail</option>
+                      <option value="Telefone">Telefone</option>
+                      <option value="Chave Aleatória">Chave Aleatória</option>
+                    </select>
+                  </div>
+
+                  {/* Chave Pix Exibida */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Chave Pix Exibida (com formatação)
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKeyInput}
+                      onChange={(e) => {
+                        setPixKeyInput(e.target.value);
+                        setPixKeyNormInput(e.target.value.replace(/\D/g, ''));
+                      }}
+                      placeholder="13.823.676/0028-47"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  {/* Chave Normalizada (técnica) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Chave Normalizada (Uso Técnico - Apenas números)
+                    </label>
+                    <input
+                      type="text"
+                      value={pixKeyNormInput}
+                      onChange={(e) => setPixKeyNormInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="13823676002847"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  {/* Nome do Recebedor (Favorecido) */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Nome do Recebedor (Favorecido Oficial)
+                    </label>
+                    <input
+                      type="text"
+                      value={pixFavoredNameInput}
+                      onChange={(e) => setPixFavoredNameInput(e.target.value)}
+                      placeholder="IMW 3 R Cosmopolis"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  {/* Instituição Bancária */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Instituição Bancária
+                    </label>
+                    <input
+                      type="text"
+                      value={pixBankNameInput}
+                      onChange={(e) => setPixBankNameInput(e.target.value)}
+                      placeholder="Santander"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                  {/* Cidade do Recebedor */}
+                  <div>
+                    <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
+                      Cidade do Recebedor
+                    </label>
+                    <input
+                      type="text"
+                      value={pixCityInput}
+                      onChange={(e) => setPixCityInput(e.target.value)}
+                      placeholder="Cosmopolis"
+                      required
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-800 text-sm focus:outline-none focus:border-emerald-600"
+                    />
+                  </div>
+
+                </div>
+
+                {/* PREVIEW DA PÁGINA DO PIX NO CMS */}
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-slate-700 flex items-center gap-1.5">
+                      <QrCode className="w-4 h-4 text-emerald-600" />
+                      <span>Pré-visualização do QR Code Gerado e Payload:</span>
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">Padrão EMV Banco Central do Brasil</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-6 bg-white p-4 rounded-xl border border-slate-200">
+                    {pixPreviewQrUrl ? (
+                      <img
+                        src={pixPreviewQrUrl}
+                        alt="QR Code Pix Preview"
+                        className="w-40 h-40 object-contain rounded-lg border border-slate-200 shadow-xs shrink-0"
+                      />
+                    ) : (
+                      <div className="w-40 h-40 bg-slate-100 rounded-lg animate-pulse flex items-center justify-center text-slate-400 text-xs font-bold shrink-0">
+                        Gerando QR...
+                      </div>
+                    )}
+
+                    <div className="space-y-2 text-xs flex-1 w-full">
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Chave:</span>
+                          <span className="font-bold text-slate-800">{pixKeyInput}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Recebedor:</span>
+                          <span className="font-bold text-[#102bde]">{pixFavoredNameInput}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Banco:</span>
+                          <span className="font-bold text-slate-800">{pixBankNameInput}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">Cidade:</span>
+                          <span className="font-bold text-slate-800">{pixCityInput}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <span className="text-[9px] font-bold uppercase text-slate-400 block mb-1">Payload EMV (Pix Copia e Cola):</span>
+                        <code className="block p-2 bg-slate-900 text-emerald-400 font-mono text-[10px] rounded-lg break-all select-all">
+                          {generatePixPayload({
+                            keyNormalized: pixKeyNormInput || pixKeyInput.replace(/\D/g, ''),
+                            favoredName: pixFavoredNameInput,
+                            city: pixCityInput,
+                            txid: '***',
+                          })}
+                        </code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BOTÃO SALVAR CMS */}
+                <div className="flex items-center justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingPix}
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{savingPix ? 'Salvando no CMS...' : 'Salvar Dados do Pix no CMS'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
@@ -5398,8 +5671,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     type="text"
                     name="name"
                     required
-                    defaultValue={editingPastor?.name || 'Pr. Gessivaldo Gomes Rebouças'}
-                    placeholder="Ex: Pr. Gessivaldo Gomes Rebouças"
+                    defaultValue={editingPastor?.name || 'Pr. Gessivaldo & Miss. Eugênia'}
+                    placeholder="Ex: Pr. Gessivaldo & Miss. Eugênia"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
                   />
                 </div>
@@ -5410,8 +5683,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     type="text"
                     name="role"
                     required
-                    defaultValue={editingPastor?.role || 'Pastor'}
-                    placeholder="Ex: Pastor"
+                    defaultValue={editingPastor?.role || 'Pastores da IMW Cosmópolis'}
+                    placeholder="Ex: Pastores da IMW Cosmópolis"
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
                   />
                 </div>
@@ -5433,8 +5706,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                 <input
                   type="text"
                   name="photoUrl"
-                  defaultValue={editingPastor?.photoUrl || '/foto-pastor-pregando.png'}
-                  placeholder="/foto-pastor-pregando.png"
+                  defaultValue={editingPastor?.photoUrl || '/foto-pastor-gessivaldo-e-missionaria-eugenia.png'}
+                  placeholder="/foto-pastor-gessivaldo-e-missionaria-eugenia.png"
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
                 />
               </div>
