@@ -11,6 +11,8 @@ export interface Leader {
   verse?: string;
   email?: string;
   phone?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export interface TimelineItem {

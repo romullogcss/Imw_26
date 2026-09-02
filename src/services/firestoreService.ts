@@ -2398,7 +2398,7 @@ export const INITIAL_DISTRICT_CONGREGATIONS: DistrictCongregation[] = [
     name: 'IMW Cosmópolis (Sede)',
     city: 'Cosmópolis',
     slug: 'cosmopolis',
-    pastorName: 'Pr. Gessivaldo & Miss. Eugênia',
+    pastorName: 'Pr. Gessivaldo',
     address: 'R. Marcelo Lugli, 1457 - Jardim Planalto, Cosmópolis - SP',
     whatsapp: '19998765432',
     googleMapsEmbedUrl: 'https://maps.google.com/maps?q=R.+Marcelo+Lugli,+1457+-+Jardim+Planalto,+Cosm%C3%B3polis+-+SP&output=embed',
@@ -2675,6 +2675,159 @@ export async function deleteDistrictCongregation(id: string) {
   fetchAndNotifyDistrictCongregations();
   return true;
 }
+
+// -------------------------------------------------------------
+// CORPO PASTORAL (LEADERS / PASTORS) CMS
+// -------------------------------------------------------------
+
+let pastorListeners: Array<(leaders: Leader[]) => void> = [];
+
+function mapPastorLeader(data: any): Leader {
+  return {
+    id: data.id,
+    name: data.name || '',
+    role: data.role || '',
+    bio: data.bio || '',
+    photoUrl: data.photo_url || data.photoUrl || '',
+    verse: data.verse || '',
+    email: data.email || '',
+    phone: data.phone || '',
+    isActive: data.is_active !== undefined ? Boolean(data.is_active) : (data.isActive !== undefined ? Boolean(data.isActive) : true),
+    sortOrder: typeof data.sort_order === 'number' ? data.sort_order : (data.sortOrder || 1),
+  };
+}
+
+async function fetchAndNotifyPastors() {
+  try {
+    const { data, error } = await supabase
+      .from('pastors')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    let items: Leader[] = [];
+    if (error || !data || data.length === 0) {
+      items = PASTORS_AND_LEADERS;
+    } else {
+      items = data.map(mapPastorLeader);
+    }
+
+    pastorListeners.forEach((cb) => cb(items));
+  } catch (err) {
+    console.warn('[Supabase] Exceção ao buscar corpo pastoral:', err);
+    pastorListeners.forEach((cb) => cb(PASTORS_AND_LEADERS));
+  }
+}
+
+export function subscribePastors(callback: (items: Leader[]) => void) {
+  pastorListeners.push(callback);
+  fetchAndNotifyPastors();
+
+  const channel = supabase
+    .channel('public:pastors')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'pastors' },
+      () => {
+        fetchAndNotifyPastors();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    pastorListeners = pastorListeners.filter((cb) => cb !== callback);
+    supabase.removeChannel(channel);
+  };
+}
+
+export async function fetchPastors(): Promise<Leader[]> {
+  try {
+    const { data, error } = await supabase
+      .from('pastors')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      return PASTORS_AND_LEADERS;
+    }
+    return data.map(mapPastorLeader);
+  } catch {
+    return PASTORS_AND_LEADERS;
+  }
+}
+
+export async function addPastor(leader: Omit<Leader, 'id'> & { id?: string }) {
+  const newId = leader.id || 'pastor-' + Date.now();
+  const dbRecord = {
+    id: newId,
+    name: leader.name,
+    role: leader.role,
+    bio: leader.bio,
+    photo_url: leader.photoUrl,
+    verse: leader.verse || '',
+    email: leader.email || '',
+    phone: leader.phone || '',
+    is_active: leader.isActive !== undefined ? leader.isActive : true,
+    sort_order: leader.sortOrder ?? 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('pastors')
+    .insert([dbRecord])
+    .select();
+
+  if (error) {
+    console.warn('[Supabase] Aviso ao adicionar no banco remoto:', error.message);
+  }
+
+  fetchAndNotifyPastors();
+  return data ? mapPastorLeader(data[0]) : mapPastorLeader(dbRecord);
+}
+
+export async function updatePastor(id: string, leader: Partial<Leader>) {
+  const dbRecord: any = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (leader.name !== undefined) dbRecord.name = leader.name;
+  if (leader.role !== undefined) dbRecord.role = leader.role;
+  if (leader.bio !== undefined) dbRecord.bio = leader.bio;
+  if (leader.photoUrl !== undefined) dbRecord.photo_url = leader.photoUrl;
+  if (leader.verse !== undefined) dbRecord.verse = leader.verse;
+  if (leader.email !== undefined) dbRecord.email = leader.email;
+  if (leader.phone !== undefined) dbRecord.phone = leader.phone;
+  if (leader.isActive !== undefined) dbRecord.is_active = leader.isActive;
+  if (leader.sortOrder !== undefined) dbRecord.sort_order = leader.sortOrder;
+
+  const { data, error } = await supabase
+    .from('pastors')
+    .update(dbRecord)
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    console.warn('[Supabase] Aviso ao atualizar pastor:', error.message);
+  }
+
+  fetchAndNotifyPastors();
+  return data ? mapPastorLeader(data[0]) : null;
+}
+
+export async function deletePastor(id: string) {
+  const { error } = await supabase
+    .from('pastors')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.warn('[Supabase] Erro ao excluir pastor:', error.message);
+  }
+
+  fetchAndNotifyPastors();
+  return true;
+}
+
 
 
 

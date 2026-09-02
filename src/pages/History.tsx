@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { TIMELINE_ITEMS, PASTORS_AND_LEADERS, CHURCH_VISION, OFFICIAL_HISTORY, ARTICLES_OF_FAITH } from '../data/churchData';
+import React, { useState, useEffect } from 'react';
+import { TIMELINE_ITEMS, CHURCH_VISION, OFFICIAL_HISTORY, ARTICLES_OF_FAITH } from '../data/churchData';
+import { subscribePastors } from '../services/firestoreService';
+import { Leader } from '../types';
 import { 
   Flame, MapPin, Church, HeartHandshake, Users, 
   Target, Eye, BookOpen, Quote, ShieldCheck, Sparkles, CheckCircle2, ChevronDown, ChevronUp
@@ -8,6 +10,15 @@ import {
 export const HistoryPage: React.FC = () => {
   const [showConstituentMembers, setShowConstituentMembers] = useState(false);
   const [showAttendees, setShowAttendees] = useState(false);
+  const [pastorsList, setPastorsList] = useState<Leader[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePastors((items) => {
+      const active = items.filter((item) => item.isActive !== false);
+      setPastorsList(active);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const getTimelineIcon = (iconName: string) => {
     switch (iconName) {
@@ -345,11 +356,11 @@ export const HistoryPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {PASTORS_AND_LEADERS.map((leader) => (
+          <div className={pastorsList.length === 1 ? "flex justify-center max-w-md mx-auto w-full" : "grid grid-cols-1 md:grid-cols-3 gap-8"}>
+            {pastorsList.map((leader) => (
               <div 
                 key={leader.id}
-                className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between"
+                className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-md hover:border-[#102bde] transition-all flex flex-col justify-between w-full"
               >
                 <div>
                   <div className="relative h-64 overflow-hidden bg-slate-100">

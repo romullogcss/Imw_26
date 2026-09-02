@@ -44,7 +44,11 @@ import {
   addDistrictCongregation,
   updateDistrictCongregation,
   deleteDistrictCongregation,
-  DEFAULT_DISTRICT_INFO
+  DEFAULT_DISTRICT_INFO,
+  subscribePastors,
+  addPastor,
+  updatePastor,
+  deletePastor
 } from '../services/firestoreService';
 import { 
   uploadFile,
@@ -109,7 +113,15 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   const [submittingLogin, setSubmittingLogin] = useState(false);
 
   // Navigation tab in Admin CMS
-  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district'>('schedules');
+  const [activeTab, setActiveTab] = useState<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>('schedules');
+
+  // Pastoral Body CMS State
+  const [pastorsList, setPastorsList] = useState<Leader[]>([]);
+  const [pastorModalOpen, setPastorModalOpen] = useState(false);
+  const [editingPastor, setEditingPastor] = useState<Leader | null>(null);
+  const [pastorToDelete, setPastorToDelete] = useState<Leader | null>(null);
+  const [deletePastorModalOpen, setDeletePastorModalOpen] = useState(false);
+  const [isSavingPastor, setIsSavingPastor] = useState(false);
 
   // District CMS State
   const [districtInfoState, setDistrictInfoState] = useState<DistrictInfo>(DEFAULT_DISTRICT_INFO);
@@ -242,6 +254,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
     const unsubMin = subscribeMinistries((data) => setMinistries(data));
     const unsubPrayers = subscribePrayerRequests((data) => setPrayers(data));
     const unsubDistrict = subscribeDistrictCongregations((data) => setDistrictCongregations(data));
+    const unsubPastors = subscribePastors((data) => setPastorsList(data));
     fetchDistrictInfo().then((info) => setDistrictInfoState(info));
 
     const unsubSettings = subscribeChurchSettings((settings) => {
@@ -266,6 +279,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
       unsubMin();
       unsubPrayers();
       unsubDistrict();
+      unsubPastors();
       unsubSettings();
     };
   }, [user]);
@@ -328,8 +342,8 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
   useEffect(() => {
     if (!user) return;
 
-    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district'>> = {
-      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites', 'district'],
+    const allowedTabsMap: Record<UserRole, Array<'schedules' | 'events' | 'sermons' | 'ministries' | 'prayers' | 'users_invites' | 'district' | 'pastors'>> = {
+      admin: ['schedules', 'events', 'sermons', 'ministries', 'prayers', 'users_invites', 'district', 'pastors'],
       media: ['sermons', 'events'],
       intercession: ['prayers'],
     };
@@ -1960,6 +1974,27 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                   activeTab === 'district' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
                 }`}>
                   {districtCongregations.length}
+                </span>
+              </button>
+            )}
+
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setActiveTab('pastors')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer ${
+                  activeTab === 'pastors'
+                    ? 'bg-[#102bde] text-white shadow-md'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Users className="w-4 h-4 text-blue-500" />
+                  <span>Corpo Pastoral</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  activeTab === 'pastors' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {pastorsList.length}
                 </span>
               </button>
             )}
@@ -5167,6 +5202,322 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                     await deleteDistrictCongregation(congregationToDelete.id);
                     setDeleteCongregationModalOpen(false);
                     setCongregationToDelete(null);
+                  } catch (err: any) {
+                    alert(err.message);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white font-black text-xs uppercase hover:bg-red-700 transition-all cursor-pointer"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAINEL DO CORPO PASTORAL */}
+      {activeTab === 'pastors' && (
+        <div className="space-y-10">
+          {/* Header */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold text-xs uppercase mb-2">
+                <Users className="w-4 h-4" />
+                <span>Gestão do Corpo Pastoral</span>
+              </div>
+              <h2 className="text-2xl font-black uppercase text-slate-900">
+                Corpo Pastoral Local
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Gerencie os integrantes do Corpo Pastoral exibidos na página "Sobre" da igreja.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setEditingPastor(null);
+                setPastorModalOpen(true);
+              }}
+              className="px-5 py-3 rounded-xl bg-[#102bde] text-white font-black text-xs uppercase tracking-wider hover:bg-[#0d23b8] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Integrante</span>
+            </button>
+          </div>
+
+          {/* Tabela do Corpo Pastoral */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h3 className="text-lg font-black uppercase text-slate-900">
+                Integrantes do Corpo Pastoral ({pastorsList.length})
+              </h3>
+            </div>
+
+            {pastorsList.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs font-bold text-slate-600 uppercase">Nenhum integrante cadastrado</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4">Foto / Nome</th>
+                      <th className="py-3 px-4">Cargo / Função</th>
+                      <th className="py-3 px-4">Biografia</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {pastorsList.map((pastor) => (
+                      <tr key={pastor.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={pastor.photoUrl || '/foto-pastor-pregando.png'}
+                              alt={pastor.name}
+                              className="w-10 h-10 object-cover rounded-full border border-slate-200 shadow-xs"
+                            />
+                            <span className="font-black text-slate-900 uppercase block">{pastor.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-700">
+                          {pastor.role}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
+                          {pastor.bio}
+                        </td>
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await updatePastor(pastor.id, { isActive: pastor.isActive === false ? true : false });
+                              } catch (err: any) {
+                                alert(err.message);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase cursor-pointer transition-colors ${
+                              pastor.isActive !== false
+                                ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                            }`}
+                          >
+                            {pastor.isActive !== false ? 'Ativo' : 'Inativo'}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingPastor(pastor);
+                                setPastorModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-slate-600 hover:text-[#102bde] hover:bg-blue-50 transition-colors cursor-pointer"
+                              title="Editar Integrante"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setPastorToDelete(pastor);
+                                setDeletePastorModalOpen(true);
+                              }}
+                              className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Excluir Integrante"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL ADICIONAR / EDITAR PASTOR */}
+      {pastorModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-6 my-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-black text-lg uppercase text-slate-900">
+                {editingPastor ? 'Editar Integrante' : 'Novo Integrante do Corpo Pastoral'}
+              </h3>
+              <button
+                onClick={() => setPastorModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSavingPastor(true);
+
+                const form = e.currentTarget;
+                const formData = new FormData(form);
+
+                const dataPayload = {
+                  name: formData.get('name') as string,
+                  role: formData.get('role') as string,
+                  bio: formData.get('bio') as string,
+                  photoUrl: formData.get('photoUrl') as string,
+                  verse: formData.get('verse') as string,
+                  isActive: formData.get('isActive') === 'on',
+                };
+
+                try {
+                  if (editingPastor) {
+                    await updatePastor(editingPastor.id, dataPayload);
+                  } else {
+                    await addPastor(dataPayload);
+                  }
+                  setPastorModalOpen(false);
+                  setEditingPastor(null);
+                } catch (err: any) {
+                  alert(err.message || 'Erro ao salvar integrante.');
+                } finally {
+                  setIsSavingPastor(false);
+                }
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Nome *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    defaultValue={editingPastor?.name || 'Pr. Gessivaldo'}
+                    placeholder="Ex: Pr. Gessivaldo"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold uppercase text-slate-700 mb-1">Cargo / Função *</label>
+                  <input
+                    type="text"
+                    name="role"
+                    required
+                    defaultValue={editingPastor?.role || 'Pastor'}
+                    placeholder="Ex: Pastor"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-[#102bde]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Biografia / Descrição</label>
+                <textarea
+                  name="bio"
+                  rows={3}
+                  defaultValue={editingPastor?.bio || ''}
+                  placeholder="Descrição da atuação ministerial..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-900 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">URL da Foto</label>
+                <input
+                  type="text"
+                  name="photoUrl"
+                  defaultValue={editingPastor?.photoUrl || '/foto-pastor-pregando.png'}
+                  placeholder="/foto-pastor-pregando.png"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold uppercase text-slate-700 mb-1">Versículo Básico / Citação</label>
+                <input
+                  type="text"
+                  name="verse"
+                  defaultValue={editingPastor?.verse || ''}
+                  placeholder="Ex: Combati o bom combate..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-medium text-slate-800 focus:outline-none focus:border-[#102bde]"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="pastorIsActive"
+                  name="isActive"
+                  defaultChecked={editingPastor ? editingPastor.isActive !== false : true}
+                  className="w-4 h-4 text-[#102bde] rounded border-slate-300"
+                />
+                <label htmlFor="pastorIsActive" className="font-bold uppercase text-slate-800 text-xs cursor-pointer">
+                  Exibir este integrante na página pública "Sobre"
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPastorModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold uppercase hover:bg-slate-200 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPastor}
+                  className="px-5 py-2 rounded-xl bg-[#102bde] text-white font-black uppercase tracking-wider hover:bg-[#0d23b8] cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingPastor ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Salvando...</span>
+                    </>
+                  ) : (
+                    <span>Salvar Integrante</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EXCLUIR PASTOR */}
+      {deletePastorModalOpen && pastorToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 shadow-2xl">
+            <div className="flex items-center gap-3 text-red-600">
+              <AlertCircle className="w-6 h-6" />
+              <h3 className="font-black text-lg uppercase">Excluir Integrante?</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tem certeza que deseja excluir <strong className="text-slate-900 uppercase">{pastorToDelete.name}</strong>? Este registro será removido da página "Sobre".
+            </p>
+            <div className="pt-2 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setDeletePastorModalOpen(false);
+                  setPastorToDelete(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs uppercase hover:bg-slate-200 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await deletePastor(pastorToDelete.id);
+                    setDeletePastorModalOpen(false);
+                    setPastorToDelete(null);
                   } catch (err: any) {
                     alert(err.message);
                   }

@@ -188,29 +188,15 @@ export const CHURCH_INFO = {
 
 export const PASTORS_AND_LEADERS: Leader[] = [
   {
-    id: 'pastor-titular',
-    name: 'Pr. Gessivaldo & Miss. Eugênia',
-    role: 'Pastores da IMW Cosmópolis',
+    id: 'pastor-gessivaldo',
+    name: 'Pr. Gessivaldo',
+    role: 'Pastor',
     bio: 'À frente da IMW Cosmópolis, com dedicação ao ensino da Palavra, pastoreio de famílias e fortalecimento do compromisso missionário da igreja.',
     photoUrl: '/foto-pastor-pregando.png',
     verse: 'Combati o bom combate, acabei a carreira, guardei a fé. (2 Timóteo 4:7)',
-    email: 'gessivaldo.reboucas@imwcosmopolis.com.br',
-  },
-  {
-    id: 'pastor-auxiliar',
-    name: 'Pr. Marcos Oliveira',
-    role: 'Pastor Auxiliar e Ensino Bíblico',
-    bio: 'Coordenador da Escola Bíblica e do ministério de integração. Apaixonado por teologia prática e discipulado.',
-    photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800',
-    verse: 'Lâmpada para os meus pés é tua palavra e luz para o meu caminho. (Salmo 119:105)',
-  },
-  {
-    id: 'lider-jovens',
-    name: 'Diácono Lucas & Mariana Santos',
-    role: 'Líderes de Juventude e Louvor',
-    bio: 'Lideram os ministérios de adolescentes, jovens e equipes de adoração, incentivando uma geração comprometida com o Reino.',
-    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800',
-    verse: 'Ninguém despreze a tua mocidade; mas sê o exemplo dos fiéis. (1 Timóteo 4:12)',
+    email: 'gessivaldo@imwcosmopolis.com.br',
+    isActive: true,
+    sortOrder: 1,
   },
 ];
 
@@ -803,7 +789,7 @@ export const SPOTIFY_PLAYLIST = {
     {
       id: 'sp-1',
       title: 'A Relevância da Graça Preveniente na Prática',
-      preacherOrArtist: 'Pr. Gessivaldo Gomes Rebouças - Podcast IMW',
+      preacherOrArtist: 'Pr. Gessivaldo - Podcast IMW',
       duration: '38:12',
       spotifyUri: 'spotify:episode:1',
     },
