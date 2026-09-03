@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { WEEKLY_SCHEDULE, EVENT_HEADER_CONFIGS } from '../data/churchData';
 import { subscribeSchedules, subscribeEvents, addEventRegistration } from '../services/firestoreService';
 import { ScheduleItem, ChurchEvent, PageId } from '../types';
-import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl, formatEventDateRange } from '../utils/dateUtils';
+import { formatDateToDisplay, formatDateToDb, parseLocalDate, generateGoogleCalendarUrl, formatEventDateRange, sortSchedules } from '../utils/dateUtils';
 import { DatePicker } from '../components/DatePicker';
 import { EventsPageHeader } from '../components/EventsPageHeader';
 import { 
@@ -116,9 +116,11 @@ export const SchedulePage: React.FC<SchedulePageProps> = ({ onNavigate }) => {
 
   const daysList = ['Todos', 'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
-  const filteredSchedule = selectedDay === 'Todos' 
-    ? scheduleList 
-    : scheduleList.filter(item => item.day === selectedDay);
+  const filteredSchedule = sortSchedules(
+    selectedDay === 'Todos' 
+      ? scheduleList 
+      : scheduleList.filter(item => item.day === selectedDay)
+  );
 
   const handleAddToCalendar = (event: ChurchEvent) => {
     const gcalUrl = generateGoogleCalendarUrl({

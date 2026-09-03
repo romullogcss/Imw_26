@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation, Leader } from '../types';
 import { WEEKLY_SCHEDULE, SPECIAL_EVENTS, SERMONS_YOUTUBE, MINISTRIES_DATA, PASTORS_AND_LEADERS } from '../data/churchData';
 import { slugify, getEventSlug } from '../utils/slugUtils';
+import { normalizeDayName, sortSchedules } from '../utils/dateUtils';
 import { 
   extractYoutubeId, 
   getYoutubeEmbedUrl, 
@@ -18,7 +19,7 @@ export { extractYoutubeId };
 function mapSchedule(row: any): ScheduleItem {
   return {
     id: String(row.id),
-    day: row.day,
+    day: normalizeDayName(row.day),
     time: row.time,
     title: row.title,
     description: row.description || '',
@@ -31,7 +32,7 @@ function mapSchedule(row: any): ScheduleItem {
 function mapScheduleToDbPayload(data: Partial<ScheduleItem>): Record<string, any> {
   const payload: Record<string, any> = {};
   if (data.id !== undefined) payload.id = data.id;
-  if (data.day !== undefined) payload.day = data.day;
+  if (data.day !== undefined) payload.day = normalizeDayName(data.day);
   if (data.time !== undefined) payload.time = data.time;
   if (data.title !== undefined) payload.title = data.title;
   if (data.description !== undefined) payload.description = data.description;
@@ -400,15 +401,14 @@ async function fetchAndNotifySchedules() {
   try {
     const { data, error } = await supabase
       .from('schedules')
-      .select('*')
-      .order('id', { ascending: true });
+      .select('*');
 
     let items: ScheduleItem[] = [];
     if (error) {
       console.warn('[Supabase] Aviso ao buscar schedules:', error.message);
-      items = WEEKLY_SCHEDULE;
+      items = sortSchedules(WEEKLY_SCHEDULE);
     } else if (data && data.length > 0) {
-      items = data.map(mapSchedule);
+      items = sortSchedules(data.map(mapSchedule));
     } else {
       items = [];
     }
@@ -416,7 +416,7 @@ async function fetchAndNotifySchedules() {
     scheduleListeners.forEach((cb) => cb(items));
   } catch (err) {
     console.warn('[Supabase] Exceção ao buscar schedules:', err);
-    scheduleListeners.forEach((cb) => cb(WEEKLY_SCHEDULE));
+    scheduleListeners.forEach((cb) => cb(sortSchedules(WEEKLY_SCHEDULE)));
   }
 }
 

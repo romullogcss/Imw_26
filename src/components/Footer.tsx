@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageId, ScheduleItem } from '../types';
 import { CHURCH_INFO, WEEKLY_SCHEDULE } from '../data/churchData';
 import { subscribeSchedules } from '../services/firestoreService';
+import { sortSchedules } from '../utils/dateUtils';
 import { Logo } from './Logo';
 import { 
   Cross, MapPin, Phone, Mail, Clock, Heart, 
@@ -14,12 +15,12 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenPrayerModal }) => {
-  const [schedulesList, setSchedulesList] = useState<ScheduleItem[]>(WEEKLY_SCHEDULE);
+  const [schedulesList, setSchedulesList] = useState<ScheduleItem[]>(sortSchedules(WEEKLY_SCHEDULE));
 
   useEffect(() => {
     const unsub = subscribeSchedules((items) => {
       if (items && items.length > 0) {
-        setSchedulesList(items);
+        setSchedulesList(sortSchedules(items));
       }
     });
     return () => unsub();

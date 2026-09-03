@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageId, Sermon, ScheduleItem, Leader } from '../types';
 import { CHURCH_INFO } from '../data/churchData';
 import { subscribeSermons, subscribeSchedules, subscribePastors } from '../services/firestoreService';
-import { formatDateToDisplay, generateGoogleCalendarUrl } from '../utils/dateUtils';
+import { formatDateToDisplay, generateGoogleCalendarUrl, sortSchedules } from '../utils/dateUtils';
 import { SpecialEventsSlider } from '../components/SpecialEventsSlider';
 import { 
   Calendar, Play, Heart, MapPin, ChevronRight, BookOpen, 
@@ -49,16 +49,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
 
   const latestSermon = sermonsList[0];
 
-  const dayOrder: Record<string, number> = {
-    'Domingo': 1,
-    'Segunda-feira': 2,
-    'Terça-feira': 3,
-    'Quarta-feira': 4,
-    'Quinta-feira': 5,
-    'Sexta-feira': 6,
-    'Sábado': 7,
-  };
-
   const handlePlanVisit = () => {
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
@@ -90,12 +80,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate, onOpenPrayerModal }) => 
     window.open(gcalUrl, '_blank', 'noopener,noreferrer');
   };
 
-  const sortedServices = [...scheduleList].sort((a, b) => {
-    const orderA = dayOrder[a.day] || 99;
-    const orderB = dayOrder[b.day] || 99;
-    if (orderA !== orderB) return orderA - orderB;
-    return (a.time || '').localeCompare(b.time || '');
-  });
+  const sortedServices = sortSchedules(scheduleList);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">

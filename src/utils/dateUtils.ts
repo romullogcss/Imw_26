@@ -4,6 +4,90 @@
  * Display format: DD-MM-YYYY
  */
 
+import { ScheduleItem } from '../types';
+
+export const CANONICAL_WEEKDAYS = [
+  'Domingo',
+  'Segunda-feira',
+  'Terça-feira',
+  'Quarta-feira',
+  'Quinta-feira',
+  'Sexta-feira',
+  'Sábado',
+] as const;
+
+/**
+ * Returns index for day of the week starting with Sunday = 0, Monday = 1 ... Saturday = 6.
+ * Returns 99 if unknown.
+ */
+export function getWeekdayIndex(dayStr?: string | null): number {
+  if (!dayStr) return 99;
+  const normalized = String(dayStr)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  if (normalized.includes('dom')) return 0;
+  if (normalized.includes('seg')) return 1;
+  if (normalized.includes('ter')) return 2;
+  if (normalized.includes('qua')) return 3;
+  if (normalized.includes('qui')) return 4;
+  if (normalized.includes('sex')) return 5;
+  if (normalized.includes('sab')) return 6;
+
+  return 99;
+}
+
+/**
+ * Normalizes any day of week string variation into its canonical portuguese display name
+ * starting with Sunday ("Domingo").
+ */
+export function normalizeDayName(dayStr?: string | null): ScheduleItem['day'] {
+  const idx = getWeekdayIndex(dayStr);
+  if (idx >= 0 && idx <= 6) {
+    return CANONICAL_WEEKDAYS[idx] as ScheduleItem['day'];
+  }
+  return (dayStr as ScheduleItem['day']) || 'Domingo';
+}
+
+/**
+ * Sorts local church programming (schedules) strictly by day of week starting on Sunday (0)
+ * through Saturday (6), then by start time, title, and ID.
+ */
+export function sortSchedules(schedules: ScheduleItem[]): ScheduleItem[];
+export function sortSchedules<T extends { day: string; time?: string; title?: string; id?: string }>(schedules: T[]): T[];
+export function sortSchedules<T extends { day: string; time?: string; title?: string; id?: string }>(
+  schedules: T[]
+): T[] {
+  if (!Array.isArray(schedules)) return [];
+  return [...schedules].sort((a, b) => {
+    // 1. Day of week index (0 = Domingo ... 6 = Sábado)
+    const dayA = getWeekdayIndex(a.day);
+    const dayB = getWeekdayIndex(b.day);
+    if (dayA !== dayB) {
+      return dayA - dayB;
+    }
+
+    // 2. Start time (e.g. "08:00", "09:00", "18:00", "19:30")
+    const timeA = (a.time || '').trim().padStart(5, '0');
+    const timeB = (b.time || '').trim().padStart(5, '0');
+    if (timeA !== timeB) {
+      return timeA.localeCompare(timeB);
+    }
+
+    // 3. Title as tie-breaker
+    const titleA = a.title || '';
+    const titleB = b.title || '';
+    if (titleA !== titleB) {
+      return titleA.localeCompare(titleB, 'pt-BR');
+    }
+
+    // 4. ID as secondary tie-breaker
+    return (a.id || '').localeCompare(b.id || '');
+  });
+}
+
 // Format Date or ISO/YYYY-MM-DD string to DD-MM-YYYY display format
 export function formatDateToDisplay(dateValue?: string | Date | null): string {
   if (!dateValue) return '';

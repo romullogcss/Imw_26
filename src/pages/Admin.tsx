@@ -69,7 +69,7 @@ import {
   getSpotifyEmbedUrl 
 } from '../utils/spotify';
 import { SPOTIFY_PLAYLIST } from '../data/churchData';
-import { formatDateToDisplay, formatDateToDb, formatEventDateRange } from '../utils/dateUtils';
+import { formatDateToDisplay, formatDateToDb, formatEventDateRange, sortSchedules, normalizeDayName } from '../utils/dateUtils';
 import { slugify, getEventSlug } from '../utils/slugUtils';
 import { DatePicker } from '../components/DatePicker';
 import { ScheduleItem, ChurchEvent, EventRegistration, Sermon, Ministry, PrayerRequest, UserProfile, DashboardInvite, UserRole, RegistrationType, EventType, DistrictInfo, DistrictCongregation, Leader } from '../types';
@@ -2161,7 +2161,7 @@ export const AdminPage: React.FC<AdminProps> = ({ onNavigateSite }) => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                      {schedules.map((item) => (
+                      {sortSchedules(schedules).map((item) => (
                         <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-3 px-4 font-black text-slate-900 whitespace-nowrap">
                             {item.day}
