@@ -146,7 +146,7 @@ export const SermonsPage: React.FC = () => {
               </h2>
             </div>
 
-            {/* Search Input & Category Filters */}
+            {/* Search Input */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -158,16 +158,6 @@ export const SermonsPage: React.FC = () => {
                   className="w-full sm:w-64 pl-9 pr-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-sans text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#102bde] shadow-sm"
                 />
               </div>
-
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-sans font-bold text-slate-700 focus:outline-none focus:border-[#102bde] cursor-pointer uppercase shadow-sm"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
             </div>
           </div>
 
