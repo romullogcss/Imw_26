@@ -6,6 +6,7 @@ interface LogoProps {
   imgClassName?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
+  showSubtitle?: boolean;
   variant?: 'light' | 'dark';
   onClick?: () => void;
   customLogoUrl?: string;
@@ -42,6 +43,7 @@ export const Logo: React.FC<LogoProps> = ({
   imgClassName = '',
   size = 'md',
   showText = true,
+  showSubtitle = true,
   variant = 'light',
   onClick,
   customLogoUrl,
@@ -102,6 +104,7 @@ export const Logo: React.FC<LogoProps> = ({
           }`}>
             IMW COSMÓPOLIS
           </span>
+          {showSubtitle && (
           <span className={`text-[10px] sm:text-[11px] font-bold tracking-wider uppercase leading-tight mt-0.5 ${
             variant === 'dark'
               ? 'text-white/90 hover:text-white focus:text-white active:text-white visited:text-white group-hover:text-white'
@@ -109,6 +112,7 @@ export const Logo: React.FC<LogoProps> = ({
           }`}>
             Igreja Metodista Wesleyana
           </span>
+          )}
         </div>
       )}
     </div>

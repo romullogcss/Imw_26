@@ -152,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
           {/* Logo */}
-          <Logo onClick={() => handleNavClick('home')} />
+          <Logo showSubtitle={false} onClick={() => handleNavClick('home')} />
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1 lg:gap-1.5 font-sans text-xs font-bold tracking-wider">

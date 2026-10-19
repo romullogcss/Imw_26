@@ -602,3 +602,50 @@ BEGIN
   RETURN v_updated_profile;
 END;
 $$;
+
+-- ====================================================================
+-- CORPO PASTORAL (PASTORS)
+-- Usado por subscribePastors/addPastor/updatePastor em firestoreService.ts
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS public.pastors (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  role TEXT,
+  bio TEXT,
+  photo_url TEXT,
+  verse TEXT,
+  email TEXT,
+  phone TEXT,
+  is_active BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.pastors ENABLE ROW LEVEL SECURITY;
+
+-- PASTORS POLICIES (Public read; Admin write)
+DROP POLICY IF EXISTS "Public read pastors" ON public.pastors;
+CREATE POLICY "Public read pastors" ON public.pastors FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admin insert pastors" ON public.pastors;
+CREATE POLICY "Admin insert pastors" ON public.pastors FOR INSERT TO authenticated WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "Admin update pastors" ON public.pastors;
+CREATE POLICY "Admin update pastors" ON public.pastors FOR UPDATE TO authenticated USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admin delete pastors" ON public.pastors;
+CREATE POLICY "Admin delete pastors" ON public.pastors FOR DELETE TO authenticated USING (public.is_admin());
+
+-- Habilitar Realtime (o site escuta alterações em public:pastors)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pastors'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.pastors;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
