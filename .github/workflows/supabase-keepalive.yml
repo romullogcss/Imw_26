@@ -1,0 +1,25 @@
+# Evita que o projeto do Supabase (plano gratuito) seja pausado por inatividade.
+# Faz uma consulta simples na API a cada 3 dias.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://fcsljawpczunmfistwza.supabase.co
+      # Chave publishable (pública, a mesma usada no front-end)
+      SUPABASE_KEY: sb_publishable_4V6h7KmPA64ztxXkGEBERw__TSFXGdN
+    steps:
+      - name: Consultar a tabela events
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/events?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "Supabase respondeu: $status"
+          test "$status" = "200"
