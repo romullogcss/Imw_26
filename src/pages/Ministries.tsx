@@ -4,7 +4,7 @@ import { Ministry } from '../types';
 import { 
   Users, Clock, MapPin, Phone, ChevronRight, X, 
   Sparkles, Heart, Calendar, Image as ImageIcon, CheckCircle, 
-  ArrowLeft, MessageCircle, Smile, Flame, Shield, Sun
+  ArrowLeft, Smile, Flame, Shield, Sun
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -160,18 +160,6 @@ export const MinistriesPage: React.FC<MinistriesPageProps> = ({ initialMinistryI
                       </li>
                     ))}
                   </ul>
-                </div>
-
-                <div className="pt-2">
-                  <a
-                    href={`https://wa.me/5519998765432?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20${encodeURIComponent(selectedMinistry.title)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-sans font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>FALAR COM O LÍDER NO WHATSAPP</span>
-                  </a>
                 </div>
               </div>
 

@@ -10,7 +10,7 @@ import { ChurchEvent, DistrictInfo, DistrictCongregation, PageId } from '../type
 import { formatEventDateRange, generateGoogleCalendarUrl } from '../utils/dateUtils';
 import { 
   Calendar, Clock, MapPin, Plus, ChevronRight, CheckCircle2,
-  AlertCircle, X, Loader2, MessageCircle, ExternalLink, Map, Search,
+  AlertCircle, X, Loader2, ExternalLink, Map, Search,
   HeartHandshake, Compass, Users, Church, Building2, Instagram, Facebook, Youtube
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -69,13 +69,6 @@ export const DistrictEventsPage: React.FC<DistrictEventsPageProps> = ({ onNaviga
       cong.address.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCity && matchesSearch;
   });
-
-  const formatWhatsappLink = (phone: string, congName: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    const num = cleaned.length <= 11 ? `55${cleaned}` : cleaned;
-    const msg = encodeURIComponent(`Olá! Gostaria de saber mais informações e os horários dos cultos da ${congName}.`);
-    return `https://wa.me/${num}?text=${msg}`;
-  };
 
   const getMapEmbedUrl = (cong: DistrictCongregation) => {
     if (cong.googleMapsEmbedUrl && cong.googleMapsEmbedUrl.trim() !== '') {
@@ -372,19 +365,6 @@ export const DistrictEventsPage: React.FC<DistrictEventsPageProps> = ({ onNaviga
 
                   {/* Actions Footer */}
                   <div className="p-5 pt-0 space-y-2 font-sans">
-                    {/* WhatsApp Click-to-Chat Button */}
-                    {cong.whatsapp && (
-                      <a
-                        href={formatWhatsappLink(cong.whatsapp, cong.name)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                      >
-                        <MessageCircle className="w-4 h-4 fill-white/20" />
-                        <span>Falar no WhatsApp</span>
-                      </a>
-                    )}
-
                     <div className="grid grid-cols-2 gap-2">
                       {/* Toggle Map Embed Button */}
                       <button
