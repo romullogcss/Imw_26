@@ -1,11 +1,15 @@
 # Evita que o projeto do Supabase (plano gratuito) seja pausado por inatividade.
-# Faz uma consulta simples na API a cada 3 dias.
+# Faz uma consulta simples na API a cada 3 dias e avisa por e-mail
+# comentando na issue "Supabase keep-alive" com menção a @romullogcss.
 name: Supabase keep-alive
 
 on:
   schedule:
     - cron: '0 12 */3 * *'
   workflow_dispatch:
+
+permissions:
+  issues: write
 
 jobs:
   ping:
@@ -16,10 +20,37 @@ jobs:
       SUPABASE_KEY: sb_publishable_4V6h7KmPA64ztxXkGEBERw__TSFXGdN
     steps:
       - name: Consultar a tabela events
+        id: ping
         run: |
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             "$SUPABASE_URL/rest/v1/events?select=id&limit=1" \
             -H "apikey: $SUPABASE_KEY" \
             -H "Authorization: Bearer $SUPABASE_KEY")
           echo "Supabase respondeu: $status"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
           test "$status" = "200"
+
+      - name: Avisar na issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STATUS: ${{ steps.ping.outputs.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Supabase keep-alive"
+          issue=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$title\") | .number" | head -n1)
+          if [ -z "$issue" ]; then
+            issue=$(gh issue create --title "$title" \
+              --body "Registro automático dos pings que mantêm o Supabase ativo. Não feche esta issue." \
+              | grep -o '[0-9]*$')
+          fi
+          data=$(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M')
+          if [ "$STATUS" = "200" ]; then
+            msg="✅ Ping feito em $data — Supabase respondeu 200."
+          else
+            msg="❌ Ping falhou em $data — Supabase respondeu \"${STATUS:-sem resposta}\". Verifique se o projeto foi pausado."
+          fi
+          gh issue comment "$issue" --body "@romullogcss $msg
+          [Ver execução]($RUN_URL)"
